@@ -64,6 +64,15 @@ Changed `const MODE = "deny"` → `"allow"` in main.go, rebuilt, restarted serve
 
 ---
 
+## Teardown
+
+```bash
+./register.sh remove   # remove hook from ~/.claude/settings.json
+# Ctrl-C the server in Terminal 1
+```
+
+---
+
 ## Conclusion
 
 **Both assumptions hold → proceed with http-mode design**

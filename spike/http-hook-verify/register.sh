@@ -25,9 +25,13 @@ add() {
   fi
 
   jq --arg url "$HOOK_URL" '
-    .hooks.PermissionRequest = ((.hooks.PermissionRequest // []) + [{
-      "hooks": [{"type": "http", "url": $url}]
-    }])
+    if ((.hooks.PermissionRequest // []) | map(.hooks[]?.url) | index($url)) != null then
+      .
+    else
+      .hooks.PermissionRequest = ((.hooks.PermissionRequest // []) + [{
+        "hooks": [{"type": "http", "url": $url}]
+      }])
+    end
   ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 
   echo "✅ Added spike hook: PermissionRequest → $HOOK_URL"
@@ -46,7 +50,8 @@ remove() {
       .hooks.PermissionRequest = [
         .hooks.PermissionRequest[] |
         select(.hooks | map(select(.url == $url)) | length == 0)
-      ]
+      ] |
+      if (.hooks.PermissionRequest | length) == 0 then del(.hooks.PermissionRequest) else . end
     else . end
   ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 
