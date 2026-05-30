@@ -26,7 +26,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("ERROR read body: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, "{}")
 		return
 	}
 
