@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
-// MODE controls what decision to send for PermissionRequest.
+// MODE controls what decision to send for PreToolUse.
 // Round 1: "deny"  — verify Claude waits + refuses the tool.
 // Round 2: "allow" — verify Claude waits + executes the tool without popup.
 // Change this constant and restart the server to switch rounds.
-const MODE = "deny"
+const MODE = "allow"
 
 type hookEvent struct {
 	HookEventName string `json:"hook_event_name"`
@@ -40,7 +40,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ev.HookEventName != "PermissionRequest" {
+	if ev.HookEventName != "PreToolUse" {
 		// fail-open: unrelated event → no decision
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, "{}")
@@ -58,12 +58,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("SEND  behavior=%s  send_at=%s  elapsed=%s",
 		MODE, sendAt.Format(time.RFC3339Nano), elapsed)
 
+	hookOutput := map[string]any{
+		"hookEventName":    "PreToolUse",
+		"permissionDecision": MODE,
+	}
+	if MODE == "deny" {
+		hookOutput["permissionDecisionReason"] = "Denied by spike server"
+	}
 	resp := map[string]any{
-		"hookSpecificOutput": map[string]any{
-			"decision": map[string]any{
-				"behavior": MODE,
-			},
-		},
+		"hookSpecificOutput": hookOutput,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {

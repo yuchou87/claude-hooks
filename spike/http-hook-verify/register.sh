@@ -3,7 +3,7 @@
 # Requires: jq
 #
 # Usage:
-#   ./register.sh add     — register PermissionRequest http hook
+#   ./register.sh add     — register PreToolUse http hook
 #   ./register.sh remove  — remove the spike hook entry
 
 set -euo pipefail
@@ -25,16 +25,16 @@ add() {
   fi
 
   jq --arg url "$HOOK_URL" '
-    if ((.hooks.PermissionRequest // []) | map(.hooks[]?.url) | index($url)) != null then
+    if ((.hooks.PreToolUse // []) | map(.hooks[]?.url) | index($url)) != null then
       .
     else
-      .hooks.PermissionRequest = ((.hooks.PermissionRequest // []) + [{
+      .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{
         "hooks": [{"type": "http", "url": $url}]
       }])
     end
   ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 
-  echo "✅ Added spike hook: PermissionRequest → $HOOK_URL"
+  echo "✅ Added spike hook: PreToolUse → $HOOK_URL"
   echo "   Start server: cd spike/http-hook-verify && go run ."
 }
 
@@ -46,12 +46,12 @@ remove() {
   fi
 
   jq --arg url "$HOOK_URL" '
-    if .hooks.PermissionRequest then
-      .hooks.PermissionRequest = [
-        .hooks.PermissionRequest[] |
+    if .hooks.PreToolUse then
+      .hooks.PreToolUse = [
+        .hooks.PreToolUse[] |
         select(.hooks | map(select(.url == $url)) | length == 0)
       ] |
-      if (.hooks.PermissionRequest | length) == 0 then del(.hooks.PermissionRequest) else . end
+      if (.hooks.PreToolUse | length) == 0 then del(.hooks.PreToolUse) else . end
     else . end
   ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 
