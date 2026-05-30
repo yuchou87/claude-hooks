@@ -1,1 +1,1 @@
-# claude-hooks-go
+# claude-hooks
