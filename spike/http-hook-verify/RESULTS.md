@@ -37,7 +37,7 @@ Hook registered with:
 **Claude behavior:**
 - [ ] Tool was refused by Claude
 - [ ] Claude showed an error / denial message
-- [ ] Claude did NOT wait (connected dropped immediately)
+- [ ] Claude did NOT wait — connection dropped immediately (FAILURE: assumption 1 failed)
 
 **Assumption 1 (connection hold):** ✅ CONFIRMED / ❌ FAILED
 **Assumption 2 — deny control:** ✅ CONFIRMED / ❌ FAILED
