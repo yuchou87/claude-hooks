@@ -72,8 +72,10 @@ func macOSDialog(ctx context.Context, ev Input) (bool, error) {
 	prompt := formatApprovalPrompt(ev)
 
 	// Move the dialog to the top-right corner once it appears.
-	// Runs concurrently; falls back to center if Accessibility is not granted.
-	go positionDialogTopRight(primaryScreenWidth())
+	// Screen width is computed inside the goroutine so it runs fully in parallel
+	// with dialog startup rather than blocking the main thread first.
+	// Falls back to center if Accessibility is not granted.
+	go func() { positionDialogTopRight(primaryScreenWidth()) }()
 
 	script := fmt.Sprintf(
 		`tell application "Finder"
@@ -105,10 +107,12 @@ end tell`, prompt)
 // positionDialogTopRight polls for the Finder dialog window and moves it to
 // the top-right corner of the screen. Silently does nothing on failure.
 func positionDialogTopRight(screenW int) {
-	x := screenW - 400 // 380px dialog + 20px right margin
+	x := screenW - 430 // 380px dialog + 50px right margin
 	if x < 0 {
 		x = 0
 	}
+	// Use `subrole is "AXDialog"` to find the actual dialog window rather than
+	// any regular Finder windows the user may have open.
 	script := fmt.Sprintf(`
 tell application "System Events"
 	tell process "Finder"
@@ -116,10 +120,11 @@ tell application "System Events"
 		repeat while attempts < 30
 			delay 0.1
 			set attempts to attempts + 1
-			if (count of windows) > 0 then
-				set position of window 1 to {%d, 50}
+			try
+				set dlg to first window whose subrole is "AXDialog"
+				set position of dlg to {%d, 50}
 				exit repeat
-			end if
+			end try
 		end repeat
 	end tell
 end tell
