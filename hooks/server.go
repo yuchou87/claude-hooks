@@ -66,25 +66,29 @@ func (s *Server) hookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse once; on error fail-open.
+	ev, parseErr := ParseInput(raw)
+	if parseErr != nil {
+		LogError(Input{}, "parse error", parseErr)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// Local rules run first. If they decide (deny/allow), skip dialog.
-	out := Dispatch(raw)
+	out := dispatchParsed(ev)
+
 	if out != nil {
+		NotifyCompletion(ev) // fire-and-forget, no-op for non-Stop events
 		writeHookResponse(w, out)
 		return
 	}
 
-	// For PreToolUse with no local opinion: ask the approver.
-	ev, err := ParseInput(raw)
-	if err != nil {
-		// fail-open: parse error → empty 200
-		w.WriteHeader(http.StatusOK)
-		return
-	}
 	if ev.HookEventName == "PreToolUse" {
 		// Pass shutCtx so SIGTERM cancels the dialog → returns defer
 		out = s.approver.Handle(s.shutCtx, ev)
 	}
 
+	NotifyCompletion(ev) // fire-and-forget, no-op for non-Stop events
 	writeHookResponse(w, out)
 }
 

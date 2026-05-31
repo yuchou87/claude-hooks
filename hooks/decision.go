@@ -3,8 +3,9 @@ package hooks
 import "encoding/json"
 
 type permissionDecision struct {
-	PermissionDecision       string `json:"permissionDecision"`
-	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
+	PermissionDecision       string         `json:"permissionDecision"`
+	PermissionDecisionReason string         `json:"permissionDecisionReason,omitempty"`
+	UpdatedInput             map[string]any `json:"updatedInput,omitempty"`
 }
 
 type blockDecision struct {
@@ -20,10 +21,18 @@ type Output struct {
 	SystemMessage string `json:"systemMessage,omitempty"`
 	HookSpecific  any    `json:"-"` // serialized into hookSpecificOutput on wire
 	isDeny        bool
+	isAsk         bool
+	isUpdatedInput bool
 }
 
 // IsDeny reports whether this output represents a denial decision.
 func (o *Output) IsDeny() bool { return o != nil && o.isDeny }
+
+// IsAsk reports whether this output forwards to Claude Code's built-in permission dialog.
+func (o *Output) IsAsk() bool { return o != nil && o.isAsk }
+
+// IsAllowWithUpdatedInput reports whether this output rewrites tool input before execution.
+func (o *Output) IsAllowWithUpdatedInput() bool { return o != nil && o.isUpdatedInput }
 
 // JSON encodes the Output into the wire format Claude Code expects.
 func (o *Output) JSON() ([]byte, error) {
@@ -64,6 +73,31 @@ func Allow() *Output {
 		HookSpecific: permissionDecision{
 			PermissionDecision: "allow",
 		},
+	}
+}
+
+// AllowWithUpdatedInput allows the PreToolUse call and replaces the tool's
+// input fields with updates before Claude Code executes it. Pass nil or an
+// empty map to allow without modification.
+func AllowWithUpdatedInput(updates map[string]any) *Output {
+	return &Output{
+		HookSpecific: permissionDecision{
+			PermissionDecision: "allow",
+			UpdatedInput:       updates,
+		},
+		isUpdatedInput: len(updates) > 0,
+	}
+}
+
+// Ask returns an Output that forwards the PreToolUse decision to Claude Code's
+// built-in permission dialog, optionally providing a reason.
+func Ask(reason string) *Output {
+	return &Output{
+		HookSpecific: permissionDecision{
+			PermissionDecision:       "ask",
+			PermissionDecisionReason: reason,
+		},
+		isAsk: true,
 	}
 }
 

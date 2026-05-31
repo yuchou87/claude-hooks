@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 )
 
 // DoctorReport runs all health checks and returns a slice of Check results.
@@ -16,6 +17,9 @@ func DoctorReport(settingsPath, configPath, scriptsDir string) []Check {
 	var checks []Check
 
 	checks = append(checks, checkInstalledAt(settingsPath))
+	checks = append(checks, checkBinaryPath(settingsPath))
+	checks = append(checks, checkVersionMatch(settingsPath))
+	checks = append(checks, checkConflicts(settingsPath))
 
 	if runtime.GOOS == "darwin" {
 		checks = append(checks, checkLaunchd())
@@ -55,6 +59,129 @@ func checkInstalledAt(settingsPath string) Check {
 		}
 	}
 	return Check{Label: label, OK: false, Detail: "no claude-hooks entry found in settings.json"}
+}
+
+// checkBinaryPath verifies the binary path in the command-mode settings entry exists on disk.
+func checkBinaryPath(settingsPath string) Check {
+	label := "binary path exists"
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return Check{Label: label, OK: false, Detail: fmt.Sprintf("cannot read %s: %v", settingsPath, err)}
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return Check{Label: label, OK: false, Detail: "settings.json is not valid JSON"}
+	}
+
+	hm, _ := settings["hooks"].(map[string]any)
+	for _, val := range hm {
+		entries, ok := val.([]any)
+		if !ok {
+			continue
+		}
+		for _, e := range entries {
+			m, _ := e.(map[string]any)
+			if m[markerKey] != markerVersion {
+				continue
+			}
+			// Prefer the dedicated binary-path marker (written by modern installs).
+			// Fall back to splitting the command string for older entries.
+			binPath, hasBinKey := m[markerBinKey].(string)
+			if !hasBinKey {
+				cmd, ok := m["command"].(string)
+				if !ok {
+					// http mode entry has no "command" field
+					return Check{Label: label, OK: true, Detail: "http mode (no local binary path)"}
+				}
+				binPath = strings.SplitN(cmd, " ", 2)[0]
+			}
+			if _, err := os.Stat(binPath); err != nil {
+				return Check{
+					Label:  label,
+					OK:     false,
+					Detail: fmt.Sprintf("binary not found at %s — run: claude-hooks install", binPath),
+				}
+			}
+			return Check{Label: label, OK: true, Detail: binPath}
+		}
+	}
+	return Check{Label: label, OK: false, Detail: "no claude-hooks entry found"}
+}
+
+// checkVersionMatch verifies the _claudeHooksVersion marker matches the current binary version.
+func checkVersionMatch(settingsPath string) Check {
+	label := "version is current"
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return Check{Label: label, OK: false, Detail: fmt.Sprintf("cannot read %s: %v", settingsPath, err)}
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return Check{Label: label, OK: false, Detail: "settings.json is not valid JSON"}
+	}
+
+	// Scan all entries. If any entry has a matching version, the check passes.
+	// This avoids non-determinism when multiple entries exist (e.g. after a botched upgrade).
+	hm, _ := settings["hooks"].(map[string]any)
+	var mismatchDetail string
+	for _, val := range hm {
+		entries, ok := val.([]any)
+		if !ok {
+			continue
+		}
+		for _, e := range entries {
+			m, _ := e.(map[string]any)
+			installed, ok := m[markerKey].(string)
+			if !ok {
+				continue
+			}
+			if installed == markerVersion {
+				return Check{Label: label, OK: true, Detail: installed}
+			}
+			mismatchDetail = fmt.Sprintf("installed=%s current=%s — run: claude-hooks install", installed, markerVersion)
+		}
+	}
+	if mismatchDetail != "" {
+		return Check{Label: label, OK: false, Detail: mismatchDetail}
+	}
+	return Check{Label: label, OK: false, Detail: "no claude-hooks version marker found"}
+}
+
+// knownConflictMarkers are entry keys used by tools that conflict with claude-hooks.
+var knownConflictMarkers = []string{"_claudeBarVersion", "_maskoVersion"}
+
+// checkConflicts scans settings.json for known conflicting hook tools.
+func checkConflicts(settingsPath string) Check {
+	label := "no conflicting tools"
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return Check{Label: label, OK: false, Detail: fmt.Sprintf("cannot read %s: %v", settingsPath, err)}
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return Check{Label: label, OK: false, Detail: "settings.json is not valid JSON"}
+	}
+
+	hm, _ := settings["hooks"].(map[string]any)
+	for _, val := range hm {
+		entries, ok := val.([]any)
+		if !ok {
+			continue
+		}
+		for _, e := range entries {
+			m, _ := e.(map[string]any)
+			for _, marker := range knownConflictMarkers {
+				if _, found := m[marker]; found {
+					return Check{
+						Label:  label,
+						OK:     false,
+						Detail: fmt.Sprintf("conflicting tool detected (%s) — consider using one hook framework at a time", marker),
+					}
+				}
+			}
+		}
+	}
+	return Check{Label: label, OK: true}
 }
 
 func checkLaunchd() Check {

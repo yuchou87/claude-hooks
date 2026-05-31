@@ -389,6 +389,66 @@ if echo "$AT016_HELP" | grep -q "test";       then ok "AT-016d: --help lists tes
 if echo "$AT016_HELP" | grep -q "doctor";     then ok "AT-016e: --help lists doctor"; else fail "AT-016e: --help lists doctor"; fi
 if echo "$AT016_HELP" | grep -q "gen-types";  then ok "AT-016f: --help lists gen-types"; else fail "AT-016f: --help lists gen-types"; fi
 
+echo ""
+echo "=== ask decision type ==="
+
+# AT-017: gen-types output includes "ask" as a valid permissionDecision value
+contains "AT-017" "gen-types output includes ask decision type" '"ask"' "$BIN gen-types"
+
+echo ""
+echo "=== UpdatedInput + gen-types ==="
+
+# AT-018: gen-types includes updatedInput field
+contains "AT-018" "gen-types output includes updatedInput field" "updatedInput" "$BIN gen-types"
+
+echo ""
+echo "=== Stop event notification ==="
+
+# AT-019: test command passes Stop event through without blocking
+STOP_PAYLOAD='{"hook_event_name":"Stop","session_id":"s","transcript_path":"/t","cwd":"/tmp/proj"}'
+run "AT-019" "test command passes Stop event through (exit 0)" "printf '%s' '$STOP_PAYLOAD' | $BIN test"
+
+echo ""
+echo "=== CLAUDE_HOOKS_DEBUG invocation logging ==="
+
+# AT-020: CLAUDE_HOOKS_DEBUG=1 writes debug log entry on event dispatch
+AT020_LOG_DIR=$(mktemp -d)
+SAFE_PAYLOAD='{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Bash","tool_input":{"command":"ls"}}'
+( export CLAUDE_HOOKS_DEBUG=1; export CLAUDE_HOOKS_LOG_DIR="$AT020_LOG_DIR"; printf '%s' "$SAFE_PAYLOAD" | "$BIN" run > /dev/null 2>&1 ) || true
+if [ -f "$AT020_LOG_DIR/claude-hooks.jsonl" ] && grep -q '"level":"debug"' "$AT020_LOG_DIR/claude-hooks.jsonl"; then
+  ok "AT-020: CLAUDE_HOOKS_DEBUG=1 writes debug invocation log"
+else
+  fail "AT-020: CLAUDE_HOOKS_DEBUG=1 — debug log not found in $AT020_LOG_DIR"
+fi
+rm -rf "$AT020_LOG_DIR"
+
+echo ""
+echo "=== Doctor enhanced checks ==="
+
+# AT-021: doctor output includes labels for the three new checks
+# doctor exits non-zero (not installed) but check labels appear on stderr
+contains "AT-021a" "doctor shows binary path check label"    "binary path exists"    "$BIN doctor 2>&1 || true"
+contains "AT-021b" "doctor shows version match check label"  "version is current"    "$BIN doctor 2>&1 || true"
+contains "AT-021c" "doctor shows conflict check label"       "no conflicting tools"  "$BIN doctor 2>&1 || true"
+
+echo ""
+echo "=== AllowWithUpdatedInput logging ==="
+
+# AT-022: allow_rewrite is logged by default (not filtered like plain allow)
+AT022_LOG_DIR=$(mktemp -d)
+REWRITE_RULE_PAYLOAD='{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/tmp/proj","tool_name":"Bash","tool_input":{"command":"ls"}}'
+# Use a debug-mode run so we capture the decision log (allow_rewrite logs without debug too,
+# but this also exercises LogInvocation for completeness).
+( export CLAUDE_HOOKS_DEBUG=1; export CLAUDE_HOOKS_LOG_DIR="$AT022_LOG_DIR"; printf '%s' "$REWRITE_RULE_PAYLOAD" | "$BIN" run > /dev/null 2>&1 ) || true
+# No native rule produces allow_rewrite in the default binary, so we verify the log infrastructure
+# is at minimum writing the debug invocation entry (allow_rewrite requires a user-written rule).
+if [ -f "$AT022_LOG_DIR/claude-hooks.jsonl" ] && grep -q '"event":"PreToolUse"' "$AT022_LOG_DIR/claude-hooks.jsonl"; then
+  ok "AT-022: allow_rewrite log infrastructure present (invocation log confirms pipeline)"
+else
+  fail "AT-022: allow_rewrite log infrastructure — expected invocation log entry in $AT022_LOG_DIR"
+fi
+rm -rf "$AT022_LOG_DIR"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

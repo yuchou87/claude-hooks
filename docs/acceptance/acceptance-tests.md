@@ -87,6 +87,38 @@
 |----|----------|---------|----------|--------|
 | AT-016 | `--help` lists all new commands | `claude-hooks --help` | output contains uninstall, list, validate, test, doctor, gen-types | ✅ PASS |
 
+## ask Decision Type
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-017 | `gen-types` output contains `"ask"` | `claude-hooks gen-types` | stdout contains literal `"ask"` string | expected pass |
+
+## UpdatedInput
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-018 | `gen-types` output contains `updatedInput` | `claude-hooks gen-types` | stdout contains `updatedInput` | expected pass |
+
+## Stop Event Notification
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-019 | `test` command with Stop event payload | `claude-hooks test < stop.json` | Exit 0, no crash | expected pass |
+
+## CLAUDE_HOOKS_DEBUG Invocation Logging
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-020 | `CLAUDE_HOOKS_DEBUG=1` writes debug log on dispatch | `CLAUDE_HOOKS_DEBUG=1 CLAUDE_HOOKS_LOG_DIR=<tmp> claude-hooks run < payload.json` | `claude-hooks.jsonl` created with `"level":"debug"` entry | expected pass |
+
+## Doctor Enhanced Checks
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-021a | `doctor` output includes binary path check | `claude-hooks doctor` | stderr contains `binary path exists` | expected pass |
+| AT-021b | `doctor` output includes version check | `claude-hooks doctor` | stderr contains `version is current` | expected pass |
+| AT-021c | `doctor` output includes conflict check | `claude-hooks doctor` | stderr contains `no conflicting tools` | expected pass |
+
 ---
 
 > **Adding a new scenario:**

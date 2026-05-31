@@ -11,6 +11,7 @@ import (
 
 const markerKey = "_claudeHooksVersion"
 const markerVersion = "1.0.0"
+const markerBinKey = "_claudeHooksBin" // stores binary path; used by doctor checkBinaryPath
 
 // Install registers claude-hooks in the appropriate settings.json.
 // addr is the daemon listen address used for http mode (e.g. "127.0.0.1:8787").
@@ -56,9 +57,10 @@ func InstallToFile(settingsPath, binaryPath, mode, addr string, dryRun bool) err
 	switch mode {
 	case "command":
 		entry = map[string]any{
-			"type":    "command",
-			"command": binaryPath + " run",
-			markerKey: markerVersion,
+			"type":       "command",
+			"command":    binaryPath + " run",
+			markerKey:    markerVersion,
+			markerBinKey: binaryPath,
 		}
 	case "http":
 		if addr == "" {

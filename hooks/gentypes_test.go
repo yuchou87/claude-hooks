@@ -41,3 +41,17 @@ func TestTypeScriptTypes_NotEmpty(t *testing.T) {
 		t.Error("TypeScriptTypes() returned empty string")
 	}
 }
+
+func TestTypesContainAsk(t *testing.T) {
+	ts := TypeScriptTypes()
+	if !strings.Contains(ts, `permissionDecision: "ask"`) {
+		t.Error("TypeScript types must include ask decision type")
+	}
+}
+
+func TestTypesContainUpdatedInput(t *testing.T) {
+	ts := TypeScriptTypes()
+	if !strings.Contains(ts, "updatedInput") {
+		t.Error("TypeScript types must include updatedInput field")
+	}
+}

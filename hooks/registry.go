@@ -56,6 +56,14 @@ func Dispatch(raw []byte) *Output {
 		LogError(Input{}, "parse error", err)
 		return nil // fail-open
 	}
+	return dispatchParsed(ev)
+}
+
+// dispatchParsed runs all matching rules for a pre-parsed event.
+// Callers that already hold a parsed Input (command.go, server.go) use this
+// directly to avoid parsing the same bytes twice.
+func dispatchParsed(ev Input) *Output {
+	LogInvocation(ev) // debug-level, no-op unless CLAUDE_HOOKS_DEBUG=1
 
 	stat := active.Load()
 	dyn := dynamic.Load()

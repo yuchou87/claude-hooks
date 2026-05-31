@@ -24,6 +24,28 @@ type logEntry struct {
 	Reason  string `json:"reason,omitempty"`
 }
 
+// LogInvocation writes a debug-level entry for every event received by Dispatch.
+// Only fires when CLAUDE_HOOKS_DEBUG=1.
+func LogInvocation(ev Input) {
+	if os.Getenv("CLAUDE_HOOKS_DEBUG") != "1" {
+		return
+	}
+	entry := map[string]any{
+		"ts":      time.Now().UTC().Format(time.RFC3339),
+		"level":   "debug",
+		"event":   ev.HookEventName,
+		"session": ev.SessionID,
+		"tool":    ev.ToolName,
+	}
+	line, _ := json.Marshal(entry)
+	line = append(line, '\n')
+	logMu.Lock()
+	defer logMu.Unlock()
+	if f, err := openLogFile(); err == nil {
+		f.Write(line) //nolint:errcheck
+	}
+}
+
 // LogDecision writes a decision log entry. Only logs deny/block outcomes by default.
 // Set CLAUDE_HOOKS_DEBUG=1 to log all outcomes.
 func LogDecision(ev Input, out *Output, ruleName string) {
@@ -31,14 +53,19 @@ func LogDecision(ev Input, out *Output, ruleName string) {
 	if out != nil {
 		if out.IsDeny() {
 			outcome = "deny"
+		} else if out.IsAsk() {
+			outcome = "ask"
 		} else if out.Continue != nil && !*out.Continue {
 			outcome = "stop"
+		} else if out.IsAllowWithUpdatedInput() {
+			outcome = "allow_rewrite"
 		} else {
 			outcome = "allow"
 		}
 	}
 
 	debug := os.Getenv("CLAUDE_HOOKS_DEBUG") == "1"
+	// allow_rewrite always logged: it silently mutates tool input, users need visibility.
 	if (outcome == "skip" || outcome == "allow") && !debug {
 		return
 	}
@@ -64,7 +91,7 @@ func LogDecision(ev Input, out *Output, ruleName string) {
 	if err != nil {
 		return
 	}
-	f.Write(line)
+	f.Write(line) //nolint:errcheck
 }
 
 func openLogFile() (*os.File, error) {
@@ -85,6 +112,9 @@ func openLogFile() (*os.File, error) {
 }
 
 func logDir() string {
+	if override := os.Getenv("CLAUDE_HOOKS_LOG_DIR"); override != "" {
+		return override
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".claude-hooks", "logs")
 }
@@ -104,6 +134,7 @@ func LogError(ev Input, msg string, err error) {
 	logMu.Lock()
 	defer logMu.Unlock()
 	if f, err := openLogFile(); err == nil {
-		f.Write(line)
+		f.Write(line) //nolint:errcheck
 	}
 }
+

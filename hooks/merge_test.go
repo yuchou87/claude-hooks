@@ -88,3 +88,47 @@ func TestMerge_NonPreToolUse_NilIsNil(t *testing.T) {
 		t.Errorf("all-nil should return nil, got %+v", got)
 	}
 }
+
+func TestMerge_AskPriority(t *testing.T) {
+	ev := hooks.Input{HookEventName: "PreToolUse"}
+
+	t.Run("ask beats allow", func(t *testing.T) {
+		got := hooks.Merge(ev, []*hooks.Output{hooks.Allow(), hooks.Ask("needs review")})
+		if got == nil {
+			t.Fatal("want non-nil")
+		}
+		if !got.IsAsk() {
+			t.Errorf("want ask, got non-ask: %+v", got)
+		}
+	})
+
+	t.Run("deny beats ask", func(t *testing.T) {
+		got := hooks.Merge(ev, []*hooks.Output{hooks.Ask("needs review"), hooks.Deny("bad")})
+		if got == nil {
+			t.Fatal("want non-nil")
+		}
+		if !got.IsDeny() {
+			t.Errorf("want deny, got non-deny: %+v", got)
+		}
+	})
+
+	t.Run("deny beats ask beats allow", func(t *testing.T) {
+		got := hooks.Merge(ev, []*hooks.Output{hooks.Allow(), hooks.Ask("needs review"), hooks.Deny("bad")})
+		if got == nil {
+			t.Fatal("want non-nil")
+		}
+		if !got.IsDeny() {
+			t.Errorf("want deny, got non-deny: %+v", got)
+		}
+	})
+
+	t.Run("ask beats nil", func(t *testing.T) {
+		got := hooks.Merge(ev, []*hooks.Output{nil, hooks.Ask("needs review")})
+		if got == nil {
+			t.Fatal("want non-nil")
+		}
+		if !got.IsAsk() {
+			t.Errorf("want ask, got non-ask: %+v", got)
+		}
+	})
+}
