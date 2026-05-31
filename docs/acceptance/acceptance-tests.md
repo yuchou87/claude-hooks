@@ -56,6 +56,7 @@
 |----|----------|---------|----------|--------|
 | AT-010 | `list` enumerates native Go rules | `claude-hooks list` | stderr contains `Native Go rules` and `Total:` | ✅ PASS |
 | AT-011 | `uninstall --help` shows usage | `claude-hooks uninstall --help` | output contains `Remove claude-hooks` | ✅ PASS |
+| AT-011a | `uninstall` stdout is empty (stdout-purity) | `claude-hooks uninstall --scope user` | stdout is empty | ✅ PASS |
 | AT-012 | `validate` passes with valid YAML | `claude-hooks validate --config <valid.yaml>` | exit 0 | ✅ PASS |
 | AT-012a | `validate` stdout is empty on success (stdout-purity) | `claude-hooks validate --config <valid.yaml>` | stdout is empty | ✅ PASS |
 | AT-012b | `validate` reports all checks passed | `claude-hooks validate --config <valid.yaml>` | stderr contains `All checks passed` | ✅ PASS |

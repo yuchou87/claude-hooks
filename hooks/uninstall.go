@@ -32,7 +32,7 @@ func Uninstall(scope string, dryRun bool) error {
 func UninstallFromFile(settingsPath string, dryRun bool) error {
 	data, err := os.ReadFile(settingsPath)
 	if os.IsNotExist(err) {
-		fmt.Println("claude-hooks: not installed (settings file not found)")
+		fmt.Fprintln(os.Stderr, "claude-hooks: not installed (settings file not found)")
 		return nil
 	}
 	if err != nil {
@@ -46,7 +46,7 @@ func UninstallFromFile(settingsPath string, dryRun bool) error {
 
 	hooksMap, _ := settings["hooks"].(map[string]any)
 	if hooksMap == nil {
-		fmt.Println("claude-hooks: not installed (no hooks section)")
+		fmt.Fprintln(os.Stderr, "claude-hooks: not installed (no hooks section)")
 		return nil
 	}
 
@@ -73,7 +73,7 @@ func UninstallFromFile(settingsPath string, dryRun bool) error {
 	}
 
 	if removed == 0 {
-		fmt.Println("claude-hooks: not installed (no matching entries found)")
+		fmt.Fprintln(os.Stderr, "claude-hooks: not installed (no matching entries found)")
 		return nil
 	}
 
@@ -84,7 +84,7 @@ func UninstallFromFile(settingsPath string, dryRun bool) error {
 	out = append(out, '\n')
 
 	if dryRun {
-		fmt.Printf("[dry-run] would write to %s:\n%s\n", settingsPath, out)
+		fmt.Fprintf(os.Stderr, "[dry-run] would write to %s:\n%s\n", settingsPath, out)
 		return nil
 	}
 
@@ -97,7 +97,7 @@ func UninstallFromFile(settingsPath string, dryRun bool) error {
 		return fmt.Errorf("atomic rename failed: %w", err)
 	}
 
-	fmt.Printf("claude-hooks uninstalled: removed %d entry/entries from %s\n", removed, settingsPath)
+	fmt.Fprintf(os.Stderr, "claude-hooks uninstalled: removed %d entry/entries from %s\n", removed, settingsPath)
 	return nil
 }
 
@@ -112,6 +112,6 @@ func unloadLaunchd() error {
 	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove plist: %w", err)
 	}
-	fmt.Printf("claude-hooks daemon unloaded and plist removed: %s\n", plistPath)
+	fmt.Fprintf(os.Stderr, "claude-hooks daemon unloaded and plist removed: %s\n", plistPath)
 	return nil
 }

@@ -318,6 +318,13 @@ contains "AT-010c" "list command outputs 'Total:' on stderr"          "Total:"  
 
 # AT-011: uninstall --help shows usage
 contains "AT-011" "uninstall --help shows usage" "Remove claude-hooks" "$BIN uninstall --help"
+# AT-011a: uninstall stdout is empty (stdout-purity constraint)
+AT011_STDOUT=$("$BIN" uninstall --scope user 2>/dev/null || true)
+if [ -z "$AT011_STDOUT" ]; then
+  ok "AT-011a: uninstall stdout is empty (stdout-purity constraint)"
+else
+  fail "AT-011a: uninstall stdout not empty: $AT011_STDOUT"
+fi
 
 # AT-012: validate passes with valid YAML
 AT012_DIR=$(mktemp -d)

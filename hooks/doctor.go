@@ -61,10 +61,11 @@ func checkLaunchd() Check {
 	label := "launchd daemon loaded"
 	plistPath := launchdPlistPath()
 	if _, err := os.Stat(plistPath); os.IsNotExist(err) {
-		return Check{Label: label, OK: false, Detail: fmt.Sprintf("plist not found: %s", plistPath)}
+		// No plist = command mode install (not HTTP mode) — this is expected, not a failure.
+		return Check{Label: label, OK: true, Detail: "not in HTTP mode (no plist expected)"}
 	}
 	if _, err := exec.Command("launchctl", "list", "com.claude-hooks.daemon").Output(); err != nil {
-		return Check{Label: label, OK: false, Detail: "daemon not loaded in launchd"}
+		return Check{Label: label, OK: false, Detail: "plist found but daemon not loaded in launchd"}
 	}
 	return Check{Label: label, OK: true}
 }
