@@ -23,8 +23,17 @@
 
 | ID | Scenario | Command | Expected | Status |
 |----|----------|---------|----------|--------|
-| AT-001 | `--version` flag | `claude-hooks --version` | output contains `claude-hooks` | 🔲 PENDING |
-| AT-002 | `--help` lists `run` subcommand | `claude-hooks --help` | output contains `run` | 🔲 PENDING |
+| AT-001 | `--version` flag | `claude-hooks --version` | output contains `claude-hooks` | ✅ PASS |
+| AT-002 | `--help` lists `run` subcommand | `claude-hooks --help` | output contains `run` | ✅ PASS |
+
+### Command Mode
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-003a | Bad JSON → fail-open, exit 0 | `echo '{bad}' \| claude-hooks run` | exit 0 | ✅ PASS |
+| AT-003b | Bad JSON → stdout empty (stdout-purity) | `echo '{bad}' \| claude-hooks run` | stdout is empty | ✅ PASS |
+| AT-004a | `rm -rf /` denied → exit 2 | `PreToolUse Bash rm -rf /` payload | exit 2 | ✅ PASS |
+| AT-004b | `rm -rf /` denied → deny JSON in stdout | `PreToolUse Bash rm -rf /` payload | stdout contains `permissionDecision` | ✅ PASS |
 
 ---
 

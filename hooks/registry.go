@@ -1,6 +1,9 @@
 package hooks
 
-import "sync/atomic"
+import (
+	"fmt"
+	"sync/atomic"
+)
 
 // Rule defines a hook rule. Register it with Register(); it runs for every
 // matching event via Dispatch().
@@ -69,7 +72,7 @@ func Dispatch(raw []byte) *Output {
 func safeRun(r Rule, ev Input) (out *Output) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			LogError(ev, "rule panic: "+r.Name, nil)
+			LogError(ev, "rule panic: "+r.Name, fmt.Errorf("%v", rec))
 			out = nil // fail-open
 		}
 	}()
@@ -84,4 +87,10 @@ func eventMatches(r Rule, ev Input) bool {
 		}
 	}
 	return false
+}
+
+// ResetRegistryForTest clears all registered rules. Call from t.Cleanup in tests
+// that call Register, to prevent rule accumulation across -count=2 runs.
+func ResetRegistryForTest() {
+	active.Store(&ruleSet{})
 }

@@ -20,6 +20,32 @@ func TestBashSafety_BlocksRmRf(t *testing.T) {
 	}
 }
 
+func TestBashSafety_BlocksRmRfHome(t *testing.T) {
+	raw := []byte(`{
+		"hook_event_name": "PreToolUse",
+		"session_id": "s", "transcript_path": "/t", "cwd": "/",
+		"tool_name": "Bash",
+		"tool_input": {"command": "rm -rf ~"}
+	}`)
+	out := hooks.Dispatch(raw)
+	if out == nil || !out.IsDeny() {
+		t.Errorf("rm -rf ~ must be denied, got %+v", out)
+	}
+}
+
+func TestBashSafety_AllowsRmRfTmpBuild(t *testing.T) {
+	raw := []byte(`{
+		"hook_event_name": "PreToolUse",
+		"session_id": "s", "transcript_path": "/t", "cwd": "/",
+		"tool_name": "Bash",
+		"tool_input": {"command": "rm -rf /tmp/build"}
+	}`)
+	out := hooks.Dispatch(raw)
+	if out != nil && out.IsDeny() {
+		t.Errorf("rm -rf /tmp/build must NOT be denied (legitimate cleanup), got %+v", out)
+	}
+}
+
 func TestBashSafety_AllowsSafeCommand(t *testing.T) {
 	raw := []byte(`{
 		"hook_event_name": "PreToolUse",

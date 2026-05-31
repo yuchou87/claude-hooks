@@ -14,6 +14,7 @@ func TestDispatch_FailOpen_OnBadJSON(t *testing.T) {
 }
 
 func TestDispatch_FailOpen_OnPanic(t *testing.T) {
+	t.Cleanup(hooks.ResetRegistryForTest)
 	hooks.Register(hooks.Rule{
 		Name:   "panic-rule",
 		Events: []string{"PreToolUse"},
@@ -29,6 +30,7 @@ func TestDispatch_FailOpen_OnPanic(t *testing.T) {
 }
 
 func TestDispatch_DenyRule_ReturnsDeny(t *testing.T) {
+	t.Cleanup(hooks.ResetRegistryForTest)
 	hooks.Register(hooks.Rule{
 		Name:   "always-deny",
 		Events: []string{"PreToolUse"},

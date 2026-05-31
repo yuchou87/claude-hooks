@@ -85,13 +85,24 @@ contains "AT-002" "--help lists run" "run"            "$BIN --help"
 echo ""
 echo "=== Command Mode ==="
 
-# AT-003: bad JSON → fail-open (exit 0, empty stdout)
-exits_with "AT-003" "bad JSON → fail-open (exit 0)" 0 "echo '{bad}' | $BIN run"
+# AT-003: bad JSON → fail-open (exit 0, stdout must be empty)
+exits_with "AT-003a" "bad JSON → fail-open (exit 0)" 0 "echo '{bad}' | $BIN run"
+AT003_STDOUT=$(echo '{bad}' | "$BIN" run 2>/dev/null || true)
+if [ -z "$AT003_STDOUT" ]; then
+  ok "AT-003b: bad JSON → stdout is empty (stdout-purity constraint)"
+else
+  fail "AT-003b: bad JSON → stdout not empty: $AT003_STDOUT"
+fi
 
-# AT-004: bash-safety blocks rm -rf / (exit 2, deny JSON in stdout)
+# AT-004: bash-safety blocks rm -rf / (exit 2, deny JSON in stdout only)
 DENY_PAYLOAD='{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Bash","tool_input":{"command":"rm -rf /"}}'
 exits_with "AT-004a" "rm-rf-slash denied → exit 2" 2 "printf '%s' '$DENY_PAYLOAD' | $BIN run"
-contains   "AT-004b" "rm-rf-slash denied → permissionDecision in stdout" "permissionDecision" "printf '%s' '$DENY_PAYLOAD' | $BIN run"
+AT004_STDOUT=$(printf '%s' "$DENY_PAYLOAD" | "$BIN" run 2>/dev/null || true)
+if echo "$AT004_STDOUT" | grep -q "permissionDecision"; then
+  ok "AT-004b: rm-rf-slash denied → permissionDecision in stdout (stdout-only check)"
+else
+  fail "AT-004b: permissionDecision not found in stdout: $AT004_STDOUT"
+fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 

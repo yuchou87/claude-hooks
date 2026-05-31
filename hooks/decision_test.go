@@ -48,6 +48,23 @@ func TestOutput_IsDeny(t *testing.T) {
 	}
 }
 
+func TestBlock_NotDeny_ExitsZero(t *testing.T) {
+	out := hooks.Block("post-tool blocked")
+	if out.IsDeny() {
+		t.Error("Block output must not be deny (it's a PostToolUse decision, not PreToolUse)")
+	}
+	b, err := out.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	hs, _ := m["hookSpecificOutput"].(map[string]any)
+	if hs["decision"] != "block" {
+		t.Errorf("want decision=block, got %v", hs)
+	}
+}
+
 func TestGlobalStop_Continue(t *testing.T) {
 	out := hooks.GlobalStop("emergency stop")
 	if out.Continue == nil || *out.Continue != false {

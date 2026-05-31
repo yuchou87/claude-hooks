@@ -8,6 +8,7 @@
 *.so
 *.dylib
 spike/http-hook-verify/http-hook-verify
+/claude-hooks
 
 # Test binary, built with `go test -c`
 *.test
@@ -37,3 +38,6 @@ docs/superpowers/
 
 # Local Claude Code workflow file — personal, not for repo
 CLAUDE.local
+
+# Worktree directory
+.worktrees/

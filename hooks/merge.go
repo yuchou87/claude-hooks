@@ -1,9 +1,9 @@
 package hooks
 
 // Merge combines multiple rule outputs into a single Output.
-// For PreToolUse: deny > allow > nil (strictest wins).
-// For all events: continue:false (GlobalStop) wins everything.
-func Merge(ev Input, outputs []*Output) *Output {
+// deny > allow > nil (strictest wins); continue:false (GlobalStop) wins everything.
+// ev is reserved for future per-event-type merge semantics (Plan 3).
+func Merge(_ Input, outputs []*Output) *Output {
 	var result *Output
 
 	for _, o := range outputs {

@@ -67,6 +67,7 @@ func TestRunCommand_NoRuleMatch_ExitsZero_StdoutEmpty(t *testing.T) {
 }
 
 func TestRunCommand_StdoutIsValidJSON(t *testing.T) {
+	t.Cleanup(hooks.ResetRegistryForTest)
 	hooks.Register(hooks.Rule{
 		Name:   "test-allow-read",
 		Events: []string{"PreToolUse"},
