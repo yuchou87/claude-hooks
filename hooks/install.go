@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 const markerKey = "_claudeHooksVersion"
@@ -55,15 +57,22 @@ func InstallToFile(settingsPath, binaryPath, mode string, dryRun bool) error {
 			"command": binaryPath + " run",
 			markerKey: markerVersion,
 		}
+	case "http":
+		entry = map[string]any{
+			"type":             "http",
+			"url":              "http://127.0.0.1:8787/hook",
+			markerKey:          markerVersion,
+			"_claudeHooksMode": "http",
+		}
 	default:
 		return fmt.Errorf("unsupported mode: %s (use command or http)", mode)
 	}
 
-	// Idempotent: check if our entry is already there (match by markerKey).
+	// Idempotent: check if our entry (same mode) is already there.
 	existing, _ := hooksMap["PreToolUse"].([]any)
 	for _, e := range existing {
 		m, _ := e.(map[string]any)
-		if m[markerKey] == markerVersion {
+		if m[markerKey] == markerVersion && m["_claudeHooksMode"] == entry["_claudeHooksMode"] {
 			fmt.Println("claude-hooks: already installed (idempotent, no change)")
 			return nil
 		}
@@ -91,6 +100,65 @@ func InstallToFile(settingsPath, binaryPath, mode string, dryRun bool) error {
 	}
 
 	fmt.Printf("claude-hooks installed (%s mode) -> %s\n", mode, settingsPath)
+
+	// For http mode on macOS: generate and load the launchd plist.
+	if mode == "http" && runtime.GOOS == "darwin" && !dryRun {
+		if err := installLaunchd(binaryPath, "127.0.0.1:8787"); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: launchd setup failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "  Run manually: launchctl load %s\n", launchdPlistPath())
+		}
+	}
+	return nil
+}
+
+// GeneratePlistContent returns the launchd plist XML for the HTTP daemon.
+// Exported so tests can verify the content without side effects.
+func GeneratePlistContent(binaryPath, addr string) string {
+	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude-hooks.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>%s</string>
+        <string>serve</string>
+        <string>--addr</string>
+        <string>%s</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/tmp/claude-hooks-stderr.log</string>
+    <key>EnvironmentVariables</key>
+    <dict/>
+</dict>
+</plist>
+`, binaryPath, addr)
+}
+
+func launchdPlistPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Library", "LaunchAgents", "com.claude-hooks.daemon.plist")
+}
+
+func installLaunchd(binaryPath, addr string) error {
+	plistPath := launchdPlistPath()
+	if err := os.MkdirAll(filepath.Dir(plistPath), 0755); err != nil {
+		return fmt.Errorf("cannot create LaunchAgents dir: %w", err)
+	}
+	content := GeneratePlistContent(binaryPath, addr)
+	if err := os.WriteFile(plistPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("cannot write plist: %w", err)
+	}
+	// launchctl load starts the daemon immediately and at login.
+	if out, err := exec.Command("launchctl", "load", plistPath).CombinedOutput(); err != nil {
+		return fmt.Errorf("launchctl load failed: %v\n%s", err, out)
+	}
+	fmt.Printf("claude-hooks daemon loaded via launchd: %s\n", plistPath)
 	return nil
 }
 
