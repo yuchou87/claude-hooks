@@ -82,7 +82,6 @@ export type DeferOutput = null | undefined;
 
 export type HookOutput =
   | DenyOutput
-  | AllowOutput
   | AllowWithUpdatedInputOutput
   | AskOutput
   | BlockOutput

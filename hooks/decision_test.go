@@ -154,3 +154,19 @@ func TestAllowWithUpdatedInput_NilUpdates(t *testing.T) {
 		t.Error("nil updates should produce no updatedInput field in JSON")
 	}
 }
+
+func TestAllowWithUpdatedInput_EmptyMapUpdates(t *testing.T) {
+	out := hooks.AllowWithUpdatedInput(map[string]any{})
+	b, err := out.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	hs, _ := m["hookSpecificOutput"].(map[string]any)
+	if _, ok := hs["updatedInput"]; ok {
+		t.Error("empty map updates should produce no updatedInput field in JSON (omitempty)")
+	}
+}

@@ -73,8 +73,8 @@ func Allow() *Output {
 }
 
 // AllowWithUpdatedInput allows the PreToolUse call and replaces the tool's
-// input fields with updates before Claude Code executes it. Pass nil to allow
-// without modification (identical to Allow()).
+// input fields with updates before Claude Code executes it. Pass nil or an
+// empty map to allow without modification.
 func AllowWithUpdatedInput(updates map[string]any) *Output {
 	return &Output{
 		HookSpecific: permissionDecision{
