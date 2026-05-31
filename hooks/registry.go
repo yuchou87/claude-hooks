@@ -22,8 +22,13 @@ type ruleSet struct {
 
 var active atomic.Pointer[ruleSet]
 
+// dynamic holds YAML + script rules. Replaced atomically on hot-reload.
+// Separate from active (native Go rules) so hot-reload never loses Go rules.
+var dynamic atomic.Pointer[ruleSet]
+
 func init() {
 	active.Store(&ruleSet{})
+	dynamic.Store(&ruleSet{})
 }
 
 // Register adds a rule to the registry. Call from init() in rules/*.go.
@@ -43,7 +48,7 @@ func Register(r Rule) {
 	}
 }
 
-// Dispatch parses raw JSON, runs all matching rules, and merges results.
+// Dispatch parses raw JSON, runs all matching rules (static + dynamic), and merges results.
 // Always returns nil on JSON parse error (fail-open).
 func Dispatch(raw []byte) *Output {
 	ev, err := ParseInput(raw)
@@ -52,9 +57,15 @@ func Dispatch(raw []byte) *Output {
 		return nil // fail-open
 	}
 
-	rs := active.Load()
-	outputs := make([]*Output, 0, len(rs.rules))
-	for _, r := range rs.rules {
+	stat := active.Load()
+	dyn := dynamic.Load()
+
+	var all []Rule
+	all = append(all, stat.rules...)
+	all = append(all, dyn.rules...)
+
+	outputs := make([]*Output, 0, len(all))
+	for _, r := range all {
 		if !eventMatches(r, ev) {
 			continue
 		}
@@ -89,8 +100,15 @@ func eventMatches(r Rule, ev Input) bool {
 	return false
 }
 
-// ResetRegistryForTest clears all registered rules. Call from t.Cleanup in tests
-// that call Register, to prevent rule accumulation across -count=2 runs.
+// ResetRegistryForTest clears all registered rules (static + dynamic).
+// Call from t.Cleanup in tests that call Register or StoreDynamic.
 func ResetRegistryForTest() {
 	active.Store(&ruleSet{})
+	dynamic.Store(&ruleSet{})
+}
+
+// StoreDynamic atomically replaces the YAML + script rule set.
+// Called by the loader on startup and by the hot-reload watcher on file change.
+func StoreDynamic(rules []Rule) {
+	dynamic.Store(&ruleSet{rules: rules})
 }
