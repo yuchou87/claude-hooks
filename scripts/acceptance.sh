@@ -370,6 +370,18 @@ run "AT-015" "gen-types outputs TypeScript" "$BIN gen-types"
 contains "AT-015b" "gen-types contains HookInput" "HookInput" "$BIN gen-types"
 contains "AT-015c" "gen-types contains permissionDecision" "permissionDecision" "$BIN gen-types"
 
+echo ""
+echo "=== Top-Level Help Output ==="
+
+# AT-016: top-level --help lists all new commands
+AT016_HELP=$("$BIN" --help 2>&1 || true)
+if echo "$AT016_HELP" | grep -q "uninstall";  then ok "AT-016a: --help lists uninstall"; else fail "AT-016a: --help lists uninstall"; fi
+if echo "$AT016_HELP" | grep -q "list";       then ok "AT-016b: --help lists list"; else fail "AT-016b: --help lists list"; fi
+if echo "$AT016_HELP" | grep -q "validate";   then ok "AT-016c: --help lists validate"; else fail "AT-016c: --help lists validate"; fi
+if echo "$AT016_HELP" | grep -q "test";       then ok "AT-016d: --help lists test"; else fail "AT-016d: --help lists test"; fi
+if echo "$AT016_HELP" | grep -q "doctor";     then ok "AT-016e: --help lists doctor"; else fail "AT-016e: --help lists doctor"; fi
+if echo "$AT016_HELP" | grep -q "gen-types";  then ok "AT-016f: --help lists gen-types"; else fail "AT-016f: --help lists gen-types"; fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

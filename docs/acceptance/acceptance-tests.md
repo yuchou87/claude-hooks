@@ -80,6 +80,12 @@
 |----|----------|---------|----------|--------|
 | AT-015 | `gen-types` outputs TypeScript interfaces | `claude-hooks gen-types` | stdout contains `HookInput` and `permissionDecision` | ✅ PASS |
 
+### Top-Level Help Output
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-016 | `--help` lists all new commands | `claude-hooks --help` | output contains uninstall, list, validate, test, doctor, gen-types | ✅ PASS |
+
 ---
 
 > **Adding a new scenario:**
