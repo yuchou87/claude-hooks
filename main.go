@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yuchou87/claude-hooks/hooks"
+	_ "github.com/yuchou87/claude-hooks/rules" // register all rules via init()
 )
 
 func main() {
