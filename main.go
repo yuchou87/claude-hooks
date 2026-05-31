@@ -23,6 +23,7 @@ func main() {
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newInstallCmd())
 	root.AddCommand(newServeCmd())
+	root.AddCommand(newListCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -54,6 +55,48 @@ func newInstallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&scope, "scope", "user", "user|project|local")
 	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "daemon listen address (http mode only; must match serve --addr)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print diff without writing")
+	return cmd
+}
+
+func newListCmd() *cobra.Command {
+	var configPath, scriptsDir string
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all active rules (native Go + YAML + scripts)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if configPath == "" || scriptsDir == "" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("cannot determine home directory: %w", err)
+				}
+				if configPath == "" {
+					configPath = filepath.Join(home, ".claude-hooks", "config.yaml")
+				}
+				if scriptsDir == "" {
+					scriptsDir = filepath.Join(home, ".claude-hooks", "scripts")
+				}
+			}
+
+			native := hooks.ListNativeRules()
+			fmt.Fprintf(os.Stderr, "Native Go rules (%d):\n", len(native))
+			for _, r := range native {
+				fmt.Fprintf(os.Stderr, "  [native] %s  events=%v\n", r.Name, r.Events)
+			}
+
+			dynamic, err := hooks.BuildDynamicRules(configPath, scriptsDir)
+			if err != nil {
+				return fmt.Errorf("load dynamic rules: %w", err)
+			}
+			fmt.Fprintf(os.Stderr, "Dynamic rules (%d):\n", len(dynamic))
+			for _, r := range dynamic {
+				fmt.Fprintf(os.Stderr, "  [dynamic] %s  events=%v\n", r.Name, r.Events)
+			}
+			fmt.Fprintf(os.Stderr, "Total: %d rule(s)\n", len(native)+len(dynamic))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
+	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
 	return cmd
 }
 

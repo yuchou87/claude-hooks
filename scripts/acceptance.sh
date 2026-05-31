@@ -302,6 +302,20 @@ fi
 kill $DAEMON_PID_AT009 2>/dev/null; wait $DAEMON_PID_AT009 2>/dev/null
 trap 'rm -rf "$WORKDIR" "$AT007_DIR" "$AT008_DIR" "$AT009_DIR"' EXIT
 
+echo ""
+echo "=== CLI Utility Commands ==="
+
+# AT-010: list command must write to stderr only (stdout must be empty)
+AT010_STDOUT=$("$BIN" list 2>/dev/null || true)
+if [ -z "$AT010_STDOUT" ]; then
+  ok "AT-010a: list command stdout is empty (stdout-purity constraint)"
+else
+  fail "AT-010a: list command stdout not empty: $AT010_STDOUT"
+fi
+# AT-010b/c: expected strings appear on stderr
+contains "AT-010b" "list command outputs 'Native Go rules' on stderr" "Native Go rules" "$BIN list 2>&1 1>/dev/null"
+contains "AT-010c" "list command outputs 'Total:' on stderr"          "Total:"           "$BIN list 2>&1 1>/dev/null"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

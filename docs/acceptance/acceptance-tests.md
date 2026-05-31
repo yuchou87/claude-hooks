@@ -50,6 +50,12 @@
 | AT-008 | HTTP server loads JS script deny rule | `POST /hook` Write tool with script returning deny | body contains `permissionDecision`, status 200 | ✅ PASS |
 | AT-009 | Hot-reload: write YAML rule while server running, new rule fires | mutate config.yaml, wait 400ms, `POST /hook` | body contains `permissionDecision` after reload | ✅ PASS |
 
+### CLI Utility Commands
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-010 | `list` enumerates native Go rules | `claude-hooks list` | stderr contains `Native Go rules` and `Total:` | ✅ PASS |
+
 ---
 
 > **Adding a new scenario:**
