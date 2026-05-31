@@ -108,3 +108,49 @@ func TestAsk_IsNotDeny(t *testing.T) {
 		t.Error("Ask() output must not report IsDeny()=true")
 	}
 }
+
+func TestAllowWithUpdatedInput_JSON(t *testing.T) {
+	updates := map[string]any{"command": "echo modified"}
+	out := hooks.AllowWithUpdatedInput(updates)
+	if out == nil {
+		t.Fatal("want non-nil output")
+	}
+	b, err := out.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	hs, _ := m["hookSpecificOutput"].(map[string]any)
+	if hs["permissionDecision"] != "allow" {
+		t.Errorf("want permissionDecision=allow, got %v", hs["permissionDecision"])
+	}
+	ui, _ := hs["updatedInput"].(map[string]any)
+	if ui["command"] != "echo modified" {
+		t.Errorf("want updatedInput.command='echo modified', got %v", ui)
+	}
+}
+
+func TestAllowWithUpdatedInput_IsNotDeny(t *testing.T) {
+	out := hooks.AllowWithUpdatedInput(map[string]any{"x": 1})
+	if out.IsDeny() {
+		t.Error("AllowWithUpdatedInput must not be deny")
+	}
+	if out.IsAsk() {
+		t.Error("AllowWithUpdatedInput must not be ask")
+	}
+}
+
+func TestAllowWithUpdatedInput_NilUpdates(t *testing.T) {
+	out := hooks.AllowWithUpdatedInput(nil)
+	b, err := out.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	hs, _ := m["hookSpecificOutput"].(map[string]any)
+	if _, ok := hs["updatedInput"]; ok {
+		t.Error("nil updates should produce no updatedInput field in JSON")
+	}
+}

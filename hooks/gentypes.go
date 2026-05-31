@@ -38,10 +38,19 @@ export interface DenyOutput {
   };
 }
 
-/** Explicitly allow the PreToolUse tool call */
+/** Explicitly allow the PreToolUse tool call (no input rewriting) */
 export interface AllowOutput {
   hookSpecificOutput: {
     permissionDecision: "allow";
+  };
+}
+
+/** Allow the PreToolUse call and rewrite the tool input before execution */
+export interface AllowWithUpdatedInputOutput {
+  hookSpecificOutput: {
+    permissionDecision: "allow";
+    /** Partial or full replacement for the tool's input fields */
+    updatedInput?: Record<string, unknown>;
   };
 }
 
@@ -74,6 +83,7 @@ export type DeferOutput = null | undefined;
 export type HookOutput =
   | DenyOutput
   | AllowOutput
+  | AllowWithUpdatedInputOutput
   | AskOutput
   | BlockOutput
   | GlobalStopOutput

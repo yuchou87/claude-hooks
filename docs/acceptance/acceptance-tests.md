@@ -89,9 +89,15 @@
 
 ## ask Decision Type
 
-| ID | Scenario | Expected |
-|---|---|---|
-| AT-017 | `gen-types` output contains `"ask"` | stdout contains literal `"ask"` string |
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-017 | `gen-types` output contains `"ask"` | `claude-hooks gen-types` | stdout contains literal `"ask"` string | expected pass |
+
+## UpdatedInput
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-018 | `gen-types` output contains `updatedInput` | `claude-hooks gen-types` | stdout contains `updatedInput` | expected pass |
 
 ---
 

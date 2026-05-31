@@ -3,8 +3,9 @@ package hooks
 import "encoding/json"
 
 type permissionDecision struct {
-	PermissionDecision       string `json:"permissionDecision"`
-	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
+	PermissionDecision       string         `json:"permissionDecision"`
+	PermissionDecisionReason string         `json:"permissionDecisionReason,omitempty"`
+	UpdatedInput             map[string]any `json:"updatedInput,omitempty"`
 }
 
 type blockDecision struct {
@@ -67,6 +68,18 @@ func Allow() *Output {
 	return &Output{
 		HookSpecific: permissionDecision{
 			PermissionDecision: "allow",
+		},
+	}
+}
+
+// AllowWithUpdatedInput allows the PreToolUse call and replaces the tool's
+// input fields with updates before Claude Code executes it. Pass nil to allow
+// without modification (identical to Allow()).
+func AllowWithUpdatedInput(updates map[string]any) *Output {
+	return &Output{
+		HookSpecific: permissionDecision{
+			PermissionDecision: "allow",
+			UpdatedInput:       updates,
 		},
 	}
 }

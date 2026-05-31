@@ -395,6 +395,12 @@ echo "=== ask decision type ==="
 # AT-017: gen-types output includes "ask" as a valid permissionDecision value
 contains "AT-017" "gen-types output includes ask decision type" '"ask"' "$BIN gen-types"
 
+echo ""
+echo "=== UpdatedInput + gen-types ==="
+
+# AT-018: gen-types includes updatedInput field
+contains "AT-018" "gen-types output includes updatedInput field" "updatedInput" "$BIN gen-types"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
