@@ -17,11 +17,15 @@ func RunCommand(stdin io.Reader) int {
 		return 0
 	}
 
-	// Parse event for notification. Errors are OK — Dispatch handles them too.
-	ev, _ := ParseInput(raw)
+	// Parse once; on error fail-open (log and return 0).
+	ev, err := ParseInput(raw)
+	if err != nil {
+		LogError(Input{}, "parse error", err)
+		return 0
+	}
 	NotifyCompletion(ev)
 
-	out := Dispatch(raw)
+	out := dispatchParsed(ev)
 	if out == nil {
 		return 0 // no decision → empty stdout, exit 0
 	}

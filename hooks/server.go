@@ -66,21 +66,20 @@ func (s *Server) hookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Local rules run first. If they decide (deny/allow), skip dialog.
-	out := Dispatch(raw)
-
-	// Parse event for notification and PreToolUse approval fallback.
+	// Parse once; on error fail-open.
 	ev, parseErr := ParseInput(raw)
+	if parseErr != nil {
+		LogError(Input{}, "parse error", parseErr)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Local rules run first. If they decide (deny/allow), skip dialog.
+	out := dispatchParsed(ev)
 
 	if out != nil {
 		NotifyCompletion(ev) // fire-and-forget, no-op for non-Stop events
 		writeHookResponse(w, out)
-		return
-	}
-
-	if parseErr != nil {
-		// fail-open: parse error → empty 200
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 

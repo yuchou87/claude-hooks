@@ -22,11 +22,13 @@ func NotifyCompletion(ev Input) {
 	}
 
 	dir := ev.Cwd
-	if dir == "" {
-		dir = "session"
+	base := filepath.Base(dir)
+	if base == "" || base == "." || base == "/" {
+		base = "session"
 	}
-	// Replace double-quotes: AppleScript uses "" not \" for escaping inside strings.
-	msg := "✅ 完成 · " + strings.ReplaceAll(filepath.Base(dir), `"`, "'")
+	// Sanitize for AppleScript string literals: escape backslashes first, then quotes, strip newlines.
+	base = strings.NewReplacer(`\`, `\\`, `"`, `'`, "\n", " ", "\r", " ").Replace(base)
+	msg := "✅ 完成 · " + base
 	script := fmt.Sprintf(`display notification "%s" with title "Claude Code"`, msg)
 
 	go func() {

@@ -22,6 +22,7 @@ type Output struct {
 	HookSpecific  any    `json:"-"` // serialized into hookSpecificOutput on wire
 	isDeny        bool
 	isAsk         bool
+	isUpdatedInput bool
 }
 
 // IsDeny reports whether this output represents a denial decision.
@@ -29,6 +30,9 @@ func (o *Output) IsDeny() bool { return o != nil && o.isDeny }
 
 // IsAsk reports whether this output forwards to Claude Code's built-in permission dialog.
 func (o *Output) IsAsk() bool { return o != nil && o.isAsk }
+
+// IsAllowWithUpdatedInput reports whether this output rewrites tool input before execution.
+func (o *Output) IsAllowWithUpdatedInput() bool { return o != nil && o.isUpdatedInput }
 
 // JSON encodes the Output into the wire format Claude Code expects.
 func (o *Output) JSON() ([]byte, error) {
@@ -81,6 +85,7 @@ func AllowWithUpdatedInput(updates map[string]any) *Output {
 			PermissionDecision: "allow",
 			UpdatedInput:       updates,
 		},
+		isUpdatedInput: len(updates) > 0,
 	}
 }
 

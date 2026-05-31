@@ -84,13 +84,17 @@ func checkBinaryPath(settingsPath string) Check {
 			if m[markerKey] != markerVersion {
 				continue
 			}
-			cmd, ok := m["command"].(string)
-			if !ok {
-				// http mode entry has no "command" field
-				return Check{Label: label, OK: true, Detail: "http mode (no local binary path)"}
+			// Prefer the dedicated binary-path marker (written by modern installs).
+			// Fall back to splitting the command string for older entries.
+			binPath, hasBinKey := m[markerBinKey].(string)
+			if !hasBinKey {
+				cmd, ok := m["command"].(string)
+				if !ok {
+					// http mode entry has no "command" field
+					return Check{Label: label, OK: true, Detail: "http mode (no local binary path)"}
+				}
+				binPath = strings.SplitN(cmd, " ", 2)[0]
 			}
-			// command is "/abs/path/to/claude-hooks run" — extract just the binary path
-			binPath := strings.SplitN(cmd, " ", 2)[0]
 			if _, err := os.Stat(binPath); err != nil {
 				return Check{
 					Label:  label,
@@ -116,7 +120,10 @@ func checkVersionMatch(settingsPath string) Check {
 		return Check{Label: label, OK: false, Detail: "settings.json is not valid JSON"}
 	}
 
+	// Scan all entries. If any entry has a matching version, the check passes.
+	// This avoids non-determinism when multiple entries exist (e.g. after a botched upgrade).
 	hm, _ := settings["hooks"].(map[string]any)
+	var mismatchDetail string
 	for _, val := range hm {
 		entries, ok := val.([]any)
 		if !ok {
@@ -131,12 +138,11 @@ func checkVersionMatch(settingsPath string) Check {
 			if installed == markerVersion {
 				return Check{Label: label, OK: true, Detail: installed}
 			}
-			return Check{
-				Label:  label,
-				OK:     false,
-				Detail: fmt.Sprintf("installed=%s current=%s — run: claude-hooks install", installed, markerVersion),
-			}
+			mismatchDetail = fmt.Sprintf("installed=%s current=%s — run: claude-hooks install", installed, markerVersion)
 		}
+	}
+	if mismatchDetail != "" {
+		return Check{Label: label, OK: false, Detail: mismatchDetail}
 	}
 	return Check{Label: label, OK: false, Detail: "no claude-hooks version marker found"}
 }
@@ -149,11 +155,11 @@ func checkConflicts(settingsPath string) Check {
 	label := "no conflicting tools"
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
-		return Check{Label: label, OK: true} // unreadable → assume no conflict
+		return Check{Label: label, OK: false, Detail: fmt.Sprintf("cannot read %s: %v", settingsPath, err)}
 	}
 	var settings map[string]any
 	if err := json.Unmarshal(data, &settings); err != nil {
-		return Check{Label: label, OK: true}
+		return Check{Label: label, OK: false, Detail: "settings.json is not valid JSON"}
 	}
 
 	hm, _ := settings["hooks"].(map[string]any)

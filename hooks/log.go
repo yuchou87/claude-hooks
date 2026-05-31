@@ -57,12 +57,15 @@ func LogDecision(ev Input, out *Output, ruleName string) {
 			outcome = "ask"
 		} else if out.Continue != nil && !*out.Continue {
 			outcome = "stop"
+		} else if out.IsAllowWithUpdatedInput() {
+			outcome = "allow_rewrite"
 		} else {
 			outcome = "allow"
 		}
 	}
 
 	debug := os.Getenv("CLAUDE_HOOKS_DEBUG") == "1"
+	// allow_rewrite always logged: it silently mutates tool input, users need visibility.
 	if (outcome == "skip" || outcome == "allow") && !debug {
 		return
 	}
@@ -135,13 +138,3 @@ func LogError(ev Input, msg string, err error) {
 	}
 }
 
-// ResetLogFileForTest closes and resets the cached log file handle.
-// Call from t.Cleanup in tests that change CLAUDE_HOOKS_LOG_DIR.
-func ResetLogFileForTest() {
-	logMu.Lock()
-	defer logMu.Unlock()
-	if logFile != nil {
-		logFile.Close()
-		logFile = nil
-	}
-}

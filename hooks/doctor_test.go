@@ -72,9 +72,10 @@ func TestCheckBinaryPath_Exists(t *testing.T) {
 		"hooks": map[string]any{
 			"PreToolUse": []any{
 				map[string]any{
-					markerKey: markerVersion,
-					"type":    "command",
-					"command": binPath + " run",
+					markerKey:    markerVersion,
+					markerBinKey: binPath, // new explicit binary path marker
+					"type":       "command",
+					"command":    binPath + " run",
 				},
 			},
 		},
@@ -85,6 +86,32 @@ func TestCheckBinaryPath_Exists(t *testing.T) {
 	check := checkBinaryPath(settingsPath)
 	if !check.OK {
 		t.Errorf("expected OK=true for existing binary, got detail: %s", check.Detail)
+	}
+}
+
+func TestCheckBinaryPath_FallbackCommandSplit(t *testing.T) {
+	// Entries installed before markerBinKey existed use command-string fallback.
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	binPath, _ := os.Executable()
+	settings := map[string]any{
+		"hooks": map[string]any{
+			"PreToolUse": []any{
+				map[string]any{
+					markerKey: markerVersion,
+					"type":    "command",
+					"command": binPath + " run", // no markerBinKey
+				},
+			},
+		},
+	}
+	data, _ := json.MarshalIndent(settings, "", "  ")
+	os.WriteFile(settingsPath, data, 0600)
+
+	check := checkBinaryPath(settingsPath)
+	if !check.OK {
+		t.Errorf("expected OK=true with fallback path detection, got detail: %s", check.Detail)
 	}
 }
 
@@ -187,6 +214,16 @@ func TestCheckConflicts_NoConflict(t *testing.T) {
 	check := checkConflicts(settingsPath)
 	if !check.OK {
 		t.Errorf("expected OK=true with no conflicts, got detail: %s", check.Detail)
+	}
+}
+
+func TestCheckConflicts_UnreadableSettings(t *testing.T) {
+	check := checkConflicts("/nonexistent/settings.json")
+	if check.OK {
+		t.Error("expected OK=false when settings.json is unreadable")
+	}
+	if check.Detail == "" {
+		t.Error("expected non-empty Detail when settings.json is unreadable")
 	}
 }
 
