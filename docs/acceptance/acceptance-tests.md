@@ -35,6 +35,13 @@
 | AT-004a | `rm -rf /` denied → exit 2 | `PreToolUse Bash rm -rf /` payload | exit 2 | ✅ PASS |
 | AT-004b | `rm -rf /` denied → deny JSON in stdout | `PreToolUse Bash rm -rf /` payload | stdout contains `permissionDecision` | ✅ PASS |
 
+### HTTP Daemon
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-005 | HTTP server: local deny fires without dialog | `POST /hook` with `rm -rf /` | body contains `permissionDecision`, status 200 | ✅ PASS |
+| AT-006 | HTTP server: SessionEnd → empty response (no dialog) | `POST /hook` with `SessionEnd` | empty body, status 200 | ✅ PASS |
+
 ---
 
 > **Adding a new scenario:**
