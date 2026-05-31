@@ -316,6 +316,9 @@ fi
 contains "AT-010b" "list command outputs 'Native Go rules' on stderr" "Native Go rules" "$BIN list 2>&1 1>/dev/null"
 contains "AT-010c" "list command outputs 'Total:' on stderr"          "Total:"           "$BIN list 2>&1 1>/dev/null"
 
+# AT-011: uninstall --help shows usage
+contains "AT-011" "uninstall --help shows usage" "Remove claude-hooks" "$BIN uninstall --help"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

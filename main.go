@@ -24,6 +24,7 @@ func main() {
 	root.AddCommand(newInstallCmd())
 	root.AddCommand(newServeCmd())
 	root.AddCommand(newListCmd())
+	root.AddCommand(newUninstallCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -54,6 +55,21 @@ func newInstallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&mode, "mode", "command", "command|http")
 	cmd.Flags().StringVar(&scope, "scope", "user", "user|project|local")
 	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "daemon listen address (http mode only; must match serve --addr)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print diff without writing")
+	return cmd
+}
+
+func newUninstallCmd() *cobra.Command {
+	var scope string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "Remove claude-hooks entries from settings.json",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return hooks.Uninstall(scope, dryRun)
+		},
+	}
+	cmd.Flags().StringVar(&scope, "scope", "user", "user|project|local")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print diff without writing")
 	return cmd
 }

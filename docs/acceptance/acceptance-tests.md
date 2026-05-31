@@ -55,6 +55,7 @@
 | ID | Scenario | Command | Expected | Status |
 |----|----------|---------|----------|--------|
 | AT-010 | `list` enumerates native Go rules | `claude-hooks list` | stderr contains `Native Go rules` and `Total:` | ✅ PASS |
+| AT-011 | `uninstall --help` shows usage | `claude-hooks uninstall --help` | output contains `Remove claude-hooks` | ✅ PASS |
 
 ---
 
