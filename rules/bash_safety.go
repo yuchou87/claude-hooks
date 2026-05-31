@@ -7,11 +7,15 @@ import (
 	"github.com/yuchou87/claude-hooks/hooks"
 )
 
-// rmRfRoot matches rm -rf / targeting the filesystem root or home dir,
-// but NOT legitimate paths like /tmp/build or /var/log. Requires that
-// the path argument is / or ~ followed by end-of-string or a shell
-// metacharacter (space, ;, &, |, newline).
-var rmRfRoot = regexp.MustCompile(`rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+[/~](\s|;|&|\||$)`)
+// rmRfRoot matches rm -rf targeting the filesystem root or home directory,
+// but NOT legitimate subpaths like /tmp/build or ~/Documents.
+//
+// Matches: rm -rf /   rm -rf ~   rm -rf ~/   rm -rf / ; ...
+// Allows:  rm -rf /tmp/build    rm -rf ~/Documents
+//
+// Pattern: after flags, the path must be / OR ~/? (tilde with optional slash),
+// followed by end-of-string or a shell metacharacter — not a path component.
+var rmRfRoot = regexp.MustCompile(`rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+(/|~/?)(\s|;|&|\||$)`)
 
 func init() {
 	hooks.Register(hooks.Rule{
