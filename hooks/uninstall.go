@@ -14,7 +14,17 @@ func Uninstall(scope string, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	return UninstallFromFile(settingsPath, dryRun)
+	if err := UninstallFromFile(settingsPath, dryRun); err != nil {
+		return err
+	}
+	// launchd cleanup runs here (not in UninstallFromFile) so tests that call
+	// UninstallFromFile directly with a temp path don't touch the real plist.
+	if !dryRun && runtime.GOOS == "darwin" {
+		if err := unloadLaunchd(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: launchd unload failed: %v\n", err)
+		}
+	}
+	return nil
 }
 
 // UninstallFromFile removes all claude-hooks entries from settingsPath.
@@ -88,12 +98,6 @@ func UninstallFromFile(settingsPath string, dryRun bool) error {
 	}
 
 	fmt.Printf("claude-hooks uninstalled: removed %d entry/entries from %s\n", removed, settingsPath)
-
-	if runtime.GOOS == "darwin" {
-		if err := unloadLaunchd(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: launchd unload failed: %v\n", err)
-		}
-	}
 	return nil
 }
 
