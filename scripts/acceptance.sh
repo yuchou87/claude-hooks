@@ -401,6 +401,13 @@ echo "=== UpdatedInput + gen-types ==="
 # AT-018: gen-types includes updatedInput field
 contains "AT-018" "gen-types output includes updatedInput field" "updatedInput" "$BIN gen-types"
 
+echo ""
+echo "=== Stop event notification ==="
+
+# AT-019: test command passes Stop event through without blocking
+STOP_PAYLOAD='{"hook_event_name":"Stop","session_id":"s","transcript_path":"/t","cwd":"/tmp/proj"}'
+run "AT-019" "test command passes Stop event through (exit 0)" "printf '%s' '$STOP_PAYLOAD' | $BIN test"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

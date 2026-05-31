@@ -99,6 +99,12 @@
 |---|---|---|---|---|
 | AT-018 | `gen-types` output contains `updatedInput` | `claude-hooks gen-types` | stdout contains `updatedInput` | expected pass |
 
+## Stop Event Notification
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-019 | `test` command with Stop event payload | `claude-hooks test < stop.json` | Exit 0, no crash | expected pass |
+
 ---
 
 > **Adding a new scenario:**
