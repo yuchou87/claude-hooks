@@ -74,6 +74,12 @@
 |----|----------|---------|----------|--------|
 | AT-014 | `doctor --help` shows usage | `claude-hooks doctor --help` | output contains `Diagnose` | ✅ PASS |
 
+### gen-types Command
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-015 | `gen-types` outputs TypeScript interfaces | `claude-hooks gen-types` | stdout contains `HookInput` and `permissionDecision` | ✅ PASS |
+
 ---
 
 > **Adding a new scenario:**

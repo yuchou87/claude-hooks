@@ -32,6 +32,7 @@ func main() {
 	root.AddCommand(newValidateCmd())
 	root.AddCommand(newTestCmd())
 	root.AddCommand(newDoctorCmd())
+	root.AddCommand(newGenTypesCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -317,5 +318,27 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().StringVar(&settingsScope, "scope", "user", "user|project|local")
 	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
 	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
+	return cmd
+}
+
+func newGenTypesCmd() *cobra.Command {
+	var outFile string
+	cmd := &cobra.Command{
+		Use:   "gen-types",
+		Short: "Generate TypeScript type definitions for scripts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ts := hooks.TypeScriptTypes()
+			if outFile != "" {
+				if err := os.WriteFile(outFile, []byte(ts), 0644); err != nil {
+					return fmt.Errorf("write file: %w", err)
+				}
+				fmt.Fprintf(os.Stderr, "TypeScript types written to %s\n", outFile)
+				return nil
+			}
+			fmt.Print(ts)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&outFile, "out", "", "write to file instead of stdout")
 	return cmd
 }

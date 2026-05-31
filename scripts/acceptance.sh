@@ -362,6 +362,14 @@ contains "AT-013b" "test command outputs permissionDecision" "permissionDecision
 run "AT-014" "doctor --help shows usage" "$BIN doctor --help"
 contains "AT-014b" "doctor --help shows 'Diagnose'" "Diagnose" "$BIN doctor --help"
 
+echo ""
+echo "=== gen-types Command ==="
+
+# AT-015: gen-types outputs TypeScript
+run "AT-015" "gen-types outputs TypeScript" "$BIN gen-types"
+contains "AT-015b" "gen-types contains HookInput" "HookInput" "$BIN gen-types"
+contains "AT-015c" "gen-types contains permissionDecision" "permissionDecision" "$BIN gen-types"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
