@@ -10,7 +10,7 @@ import (
 
 // Uninstall removes claude-hooks entries from the settings.json at the given scope.
 func Uninstall(scope string, dryRun bool) error {
-	settingsPath, err := settingsFilePath(scope)
+	settingsPath, err := SettingsFilePath(scope)
 	if err != nil {
 		return err
 	}

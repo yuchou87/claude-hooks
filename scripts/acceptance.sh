@@ -358,6 +358,10 @@ echo "=== Test Command ==="
 run "AT-013a" "test command dispatches PreToolUse rm-rf payload" "printf '%s' '$DENY_PAYLOAD' | $BIN test"
 contains "AT-013b" "test command outputs permissionDecision" "permissionDecision" "printf '%s' '$DENY_PAYLOAD' | $BIN test"
 
+# AT-014: doctor --help shows usage
+run "AT-014" "doctor --help shows usage" "$BIN doctor --help"
+contains "AT-014b" "doctor --help shows 'Diagnose'" "Diagnose" "$BIN doctor --help"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

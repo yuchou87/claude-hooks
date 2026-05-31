@@ -17,10 +17,11 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:          "claude-hooks",
-		Short:        "Claude Code hook framework",
-		Version:      "1.0.0",
-		SilenceUsage: true,
+		Use:           "claude-hooks",
+		Short:         "Claude Code hook framework",
+		Version:       "1.0.0",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	root.AddCommand(newRunCmd())
@@ -30,6 +31,7 @@ func main() {
 	root.AddCommand(newUninstallCmd())
 	root.AddCommand(newValidateCmd())
 	root.AddCommand(newTestCmd())
+	root.AddCommand(newDoctorCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -265,5 +267,55 @@ func newTestCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&payload, "payload", "", "raw JSON payload (default: read from stdin)")
+	return cmd
+}
+
+func newDoctorCmd() *cobra.Command {
+	var settingsScope, configPath, scriptsDir string
+	cmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Diagnose installation health",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			settingsPath, err := hooks.SettingsFilePath(settingsScope)
+			if err != nil {
+				return err
+			}
+			if configPath == "" || scriptsDir == "" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("cannot determine home directory: %w", err)
+				}
+				if configPath == "" {
+					configPath = filepath.Join(home, ".claude-hooks", "config.yaml")
+				}
+				if scriptsDir == "" {
+					scriptsDir = filepath.Join(home, ".claude-hooks", "scripts")
+				}
+			}
+
+			checks := hooks.DoctorReport(settingsPath, configPath, scriptsDir)
+			allOK := true
+			for _, c := range checks {
+				symbol := "✓"
+				if !c.OK {
+					symbol = "✗"
+					allOK = false
+				}
+				if c.Detail != "" {
+					fmt.Fprintf(os.Stderr, "  %s %s: %s\n", symbol, c.Label, c.Detail)
+				} else {
+					fmt.Fprintf(os.Stderr, "  %s %s\n", symbol, c.Label)
+				}
+			}
+			if !allOK {
+				return fmt.Errorf("doctor found issues")
+			}
+			fmt.Fprintln(os.Stderr, "All checks passed.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&settingsScope, "scope", "user", "user|project|local")
+	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
+	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
 	return cmd
 }
