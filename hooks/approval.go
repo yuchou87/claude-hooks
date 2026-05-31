@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -63,13 +64,22 @@ func (a *Approver) Handle(ctx context.Context, ev Input) *Output {
 	}
 }
 
-// macOSDialog shows a blocking osascript modal dialog.
+// macOSDialog shows a blocking Finder modal dialog positioned at the top-right
+// corner of the primary screen.
 // Returns (false, nil) when the user dismisses/cancels.
 // Returns (false, err) when osascript cannot run (fail-open).
 func macOSDialog(ctx context.Context, ev Input) (bool, error) {
 	prompt := formatApprovalPrompt(ev)
+
+	// Move the dialog to the top-right corner once it appears.
+	// Screen width is computed inside the goroutine so it runs fully in parallel
+	// with dialog startup rather than blocking the main thread first.
+	// Falls back to center if Accessibility is not granted.
+	go func() { positionDialogTopRight(primaryScreenWidth()) }()
+
 	script := fmt.Sprintf(
-		`tell application "System Events"
+		`tell application "Finder"
+    activate
     display dialog %q buttons {"拒绝", "批准"} default button "拒绝" with title "Claude Code 工具审批" giving up after 54
 end tell`, prompt)
 
@@ -92,6 +102,54 @@ end tell`, prompt)
 		return false, nil // OS-level dialog timeout → reject
 	}
 	return strings.Contains(result, "button returned:批准"), nil
+}
+
+// positionDialogTopRight polls for the Finder dialog window and moves it to
+// the top-right corner of the screen. Silently does nothing on failure.
+func positionDialogTopRight(screenW int) {
+	x := screenW - 430 // 380px dialog + 50px right margin
+	if x < 0 {
+		x = 0
+	}
+	// Use `subrole is "AXDialog"` to find the actual dialog window rather than
+	// any regular Finder windows the user may have open.
+	script := fmt.Sprintf(`
+tell application "System Events"
+	tell process "Finder"
+		set attempts to 0
+		repeat while attempts < 30
+			delay 0.1
+			set attempts to attempts + 1
+			try
+				set dlg to first window whose subrole is "AXDialog"
+				set position of dlg to {%d, 50}
+				exit repeat
+			end try
+		end repeat
+	end tell
+end tell
+`, x)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	exec.CommandContext(ctx, "osascript", "-e", script).Run() //nolint:errcheck
+}
+
+// primaryScreenWidth returns the logical width of the primary screen in points.
+// Falls back to 1440 on error.
+func primaryScreenWidth() int {
+	out, err := exec.Command("osascript", "-e",
+		`tell application "Finder" to get bounds of window of desktop`).Output()
+	if err != nil {
+		return 1440
+	}
+	// Output format: "0, 0, W, H"
+	parts := strings.Split(strings.TrimSpace(string(out)), ", ")
+	if len(parts) >= 3 {
+		if w, err := strconv.Atoi(parts[2]); err == nil && w > 0 {
+			return w
+		}
+	}
+	return 1440
 }
 
 func formatApprovalPrompt(ev Input) string {

@@ -152,6 +152,156 @@ else
   trap 'rm -rf "$WORKDIR"' EXIT
 fi
 
+echo ""
+echo "=== Dynamic Rules ==="
+
+# AT-007: YAML deny rule
+AT007_DIR=$(mktemp -d)
+trap 'rm -rf "$AT007_DIR"' EXIT
+cat > "$AT007_DIR/config.yaml" <<'YAML'
+rules:
+  - name: at007-deny-write
+    event: PreToolUse
+    when:
+      tool: [Write]
+    decision: deny
+    reason: "AT-007 test deny"
+YAML
+
+DAEMON_PORT_AT007=18788
+"$BIN" serve --addr "127.0.0.1:$DAEMON_PORT_AT007" --config "$AT007_DIR/config.yaml" &
+DAEMON_PID_AT007=$!
+trap 'kill $DAEMON_PID_AT007 2>/dev/null; wait $DAEMON_PID_AT007 2>/dev/null; rm -rf "$AT007_DIR"' EXIT
+
+READY_AT007=0
+for i in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:$DAEMON_PORT_AT007/hook" -X POST -d '{}' -H 'Content-Type: application/json' >/dev/null 2>&1; then
+    READY_AT007=1; break
+  fi
+  sleep 0.1
+done
+
+if [ $READY_AT007 -eq 0 ]; then
+  fail "AT-007: daemon did not start within 3s"
+else
+  AT007_BODY=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT_AT007/hook" \
+    -H 'Content-Type: application/json' \
+    -d '{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Write","tool_input":{"file_path":"/tmp/x"}}' 2>/dev/null)
+  if echo "$AT007_BODY" | grep -q "permissionDecision"; then
+    ok "AT-007: YAML deny rule fires via HTTP daemon"
+  else
+    fail "AT-007: YAML deny rule — permissionDecision missing in body: $AT007_BODY"
+  fi
+fi
+
+kill $DAEMON_PID_AT007 2>/dev/null; wait $DAEMON_PID_AT007 2>/dev/null
+trap 'rm -rf "$WORKDIR"' EXIT
+
+# AT-008: JS script deny rule
+AT008_DIR=$(mktemp -d)
+trap 'rm -rf "$AT008_DIR"' EXIT
+mkdir -p "$AT008_DIR/scripts"
+cat > "$AT008_DIR/scripts/deny_write.js" <<'JS'
+export const events = ["PreToolUse"];
+export function decide(e) {
+    if (e.tool_name === "Write") {
+        return { permissionDecision: "deny", permissionDecisionReason: "AT-008 script deny" };
+    }
+    return null;
+}
+JS
+
+DAEMON_PORT_AT008=18789
+"$BIN" serve --addr "127.0.0.1:$DAEMON_PORT_AT008" --scripts-dir "$AT008_DIR/scripts" &
+DAEMON_PID_AT008=$!
+trap 'kill $DAEMON_PID_AT008 2>/dev/null; wait $DAEMON_PID_AT008 2>/dev/null; rm -rf "$AT008_DIR"' EXIT
+
+READY_AT008=0
+for i in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:$DAEMON_PORT_AT008/hook" -X POST -d '{}' -H 'Content-Type: application/json' >/dev/null 2>&1; then
+    READY_AT008=1; break
+  fi
+  sleep 0.1
+done
+
+if [ $READY_AT008 -eq 0 ]; then
+  fail "AT-008: daemon did not start within 3s"
+else
+  AT008_BODY=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT_AT008/hook" \
+    -H 'Content-Type: application/json' \
+    -d '{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Write","tool_input":{"file_path":"/tmp/x"}}' 2>/dev/null)
+  if echo "$AT008_BODY" | grep -q "permissionDecision"; then
+    ok "AT-008: JS script deny rule fires via HTTP daemon"
+  else
+    fail "AT-008: JS script deny rule — permissionDecision missing in body: $AT008_BODY"
+  fi
+fi
+
+kill $DAEMON_PID_AT008 2>/dev/null; wait $DAEMON_PID_AT008 2>/dev/null
+
+# AT-009: hot-reload — mutate config file while daemon is running, new rule fires
+AT009_DIR=$(mktemp -d)
+trap 'rm -rf "$AT009_DIR"' EXIT
+
+# Start with empty rules
+cat > "$AT009_DIR/config.yaml" <<'YAML'
+rules: []
+YAML
+
+DAEMON_PORT_AT009=18790
+"$BIN" serve --addr "127.0.0.1:$DAEMON_PORT_AT009" --config "$AT009_DIR/config.yaml" &
+DAEMON_PID_AT009=$!
+trap 'kill $DAEMON_PID_AT009 2>/dev/null; wait $DAEMON_PID_AT009 2>/dev/null; rm -rf "$AT009_DIR"' EXIT
+
+READY_AT009=0
+for i in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:$DAEMON_PORT_AT009/hook" -X POST -d '{}' -H 'Content-Type: application/json' >/dev/null 2>&1; then
+    READY_AT009=1; break
+  fi
+  sleep 0.1
+done
+
+if [ $READY_AT009 -eq 0 ]; then
+  fail "AT-009: daemon did not start within 3s"
+else
+  # Confirm YAML rule is NOT yet loaded (response must not contain the YAML rule's reason)
+  AT009_BEFORE=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT_AT009/hook" \
+    -H 'Content-Type: application/json' \
+    -d '{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Write","tool_input":{"file_path":"/tmp/x"}}' 2>/dev/null)
+  if echo "$AT009_BEFORE" | grep -q "AT-009 hot-reload test"; then
+    fail "AT-009a: YAML rule should not be active before hot-reload, got: $AT009_BEFORE"
+  else
+    ok "AT-009a: before hot-reload — YAML rule not yet loaded"
+  fi
+
+  # Hot-reload: write a deny rule to config.yaml
+  cat > "$AT009_DIR/config.yaml" <<'YAML'
+rules:
+  - name: at009-deny-write
+    event: PreToolUse
+    when:
+      tool: [Write]
+    decision: deny
+    reason: "AT-009 hot-reload test"
+YAML
+
+  # Wait for debounce (200ms) + margin
+  sleep 0.5
+
+  # Confirm YAML rule fires after hot-reload (identified by its specific reason)
+  AT009_AFTER=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT_AT009/hook" \
+    -H 'Content-Type: application/json' \
+    -d '{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Write","tool_input":{"file_path":"/tmp/x"}}' 2>/dev/null)
+  if echo "$AT009_AFTER" | grep -q "AT-009 hot-reload test"; then
+    ok "AT-009b: after hot-reload — YAML deny rule fires without restart"
+  else
+    fail "AT-009b: after hot-reload — expected YAML rule reason in body: $AT009_AFTER"
+  fi
+fi
+
+kill $DAEMON_PID_AT009 2>/dev/null; wait $DAEMON_PID_AT009 2>/dev/null
+trap 'rm -rf "$WORKDIR" "$AT007_DIR" "$AT008_DIR" "$AT009_DIR"' EXIT
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
