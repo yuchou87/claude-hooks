@@ -422,6 +422,15 @@ else
 fi
 rm -rf "$AT020_LOG_DIR"
 
+echo ""
+echo "=== Doctor enhanced checks ==="
+
+# AT-021: doctor output includes labels for the three new checks
+# doctor exits non-zero (not installed) but check labels appear on stderr
+contains "AT-021a" "doctor shows binary path check label"    "binary path exists"    "$BIN doctor 2>&1 || true"
+contains "AT-021b" "doctor shows version match check label"  "version is current"    "$BIN doctor 2>&1 || true"
+contains "AT-021c" "doctor shows conflict check label"       "no conflicting tools"  "$BIN doctor 2>&1 || true"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

@@ -111,6 +111,14 @@
 |---|---|---|---|---|
 | AT-020 | `CLAUDE_HOOKS_DEBUG=1` writes debug log on dispatch | `CLAUDE_HOOKS_DEBUG=1 CLAUDE_HOOKS_LOG_DIR=<tmp> claude-hooks run < payload.json` | `claude-hooks.jsonl` created with `"level":"debug"` entry | expected pass |
 
+## Doctor Enhanced Checks
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-021a | `doctor` output includes binary path check | `claude-hooks doctor` | stderr contains `binary path exists` | expected pass |
+| AT-021b | `doctor` output includes version check | `claude-hooks doctor` | stderr contains `version is current` | expected pass |
+| AT-021c | `doctor` output includes conflict check | `claude-hooks doctor` | stderr contains `no conflicting tools` | expected pass |
+
 ---
 
 > **Adding a new scenario:**
