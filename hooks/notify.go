@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -24,8 +25,9 @@ func NotifyCompletion(ev Input) {
 	if dir == "" {
 		dir = "session"
 	}
-	msg := "✅ 完成 · " + filepath.Base(dir)
-	script := fmt.Sprintf(`display notification %q with title "Claude Code"`, msg)
+	// Replace double-quotes: AppleScript uses "" not \" for escaping inside strings.
+	msg := "✅ 完成 · " + strings.ReplaceAll(filepath.Base(dir), `"`, "'")
+	script := fmt.Sprintf(`display notification "%s" with title "Claude Code"`, msg)
 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

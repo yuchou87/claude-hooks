@@ -53,6 +53,8 @@ func LogDecision(ev Input, out *Output, ruleName string) {
 	if out != nil {
 		if out.IsDeny() {
 			outcome = "deny"
+		} else if out.IsAsk() {
+			outcome = "ask"
 		} else if out.Continue != nil && !*out.Continue {
 			outcome = "stop"
 		} else {
