@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/yuchou87/claude-hooks/hooks"
 )
 
 func main() {
@@ -27,8 +28,7 @@ func newRunCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Process a hook event from stdin (command mode)",
 		Run: func(cmd *cobra.Command, args []string) {
-			// hooks package filled in Task 7
-			os.Exit(0)
+			os.Exit(hooks.RunCommand(os.Stdin))
 		},
 	}
 }
@@ -40,8 +40,7 @@ func newInstallCmd() *cobra.Command {
 		Use:   "install",
 		Short: "Register claude-hooks in ~/.claude/settings.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// hooks package filled in Task 9
-			return nil
+			return hooks.Install(mode, scope, dryRun)
 		},
 	}
 	cmd.Flags().StringVar(&mode, "mode", "command", "command|http")
