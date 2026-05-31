@@ -351,6 +351,13 @@ rules:
 YAML
 exits_with "AT-012c" "validate exits 1 on invalid YAML (empty rule name)" 1 "$BIN validate --config $AT012_DIR/bad_config.yaml"
 
+echo ""
+echo "=== Test Command ==="
+
+# AT-013: test command dispatches deny rule
+run "AT-013a" "test command dispatches PreToolUse rm-rf payload" "printf '%s' '$DENY_PAYLOAD' | $BIN test"
+contains "AT-013b" "test command outputs permissionDecision" "permissionDecision" "printf '%s' '$DENY_PAYLOAD' | $BIN test"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

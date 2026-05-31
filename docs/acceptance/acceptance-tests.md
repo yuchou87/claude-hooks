@@ -61,6 +61,13 @@
 | AT-012b | `validate` reports all checks passed | `claude-hooks validate --config <valid.yaml>` | stderr contains `All checks passed` | ✅ PASS |
 | AT-012c | `validate` exits 1 on invalid YAML (empty rule name) | `claude-hooks validate --config <bad.yaml>` | exit 1 | ✅ PASS |
 
+### Test Command
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-013a | `test` dispatches payload through rules | `echo <PreToolUse rm -rf /> \| claude-hooks test` | exit 0 | ✅ PASS |
+| AT-013b | `test` outputs decision JSON | `echo <PreToolUse rm -rf /> \| claude-hooks test` | stdout contains `permissionDecision` | ✅ PASS |
+
 ---
 
 > **Adding a new scenario:**

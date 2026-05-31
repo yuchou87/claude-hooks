@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -28,6 +29,7 @@ func main() {
 	root.AddCommand(newListCmd())
 	root.AddCommand(newUninstallCmd())
 	root.AddCommand(newValidateCmd())
+	root.AddCommand(newTestCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -234,5 +236,34 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "listen address (loopback only)")
 	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
 	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
+	return cmd
+}
+
+func newTestCmd() *cobra.Command {
+	var payload string
+	cmd := &cobra.Command{
+		Use:   "test",
+		Short: "Dry-run a hook payload through all rules (reads JSON from stdin)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var raw []byte
+			var err error
+			if payload != "" {
+				raw = []byte(payload)
+			} else {
+				raw, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("read stdin: %w", err)
+				}
+			}
+			out := hooks.Dispatch(raw)
+			b, err := out.JSON()
+			if err != nil {
+				return fmt.Errorf("encode output: %w", err)
+			}
+			fmt.Println(string(b))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&payload, "payload", "", "raw JSON payload (default: read from stdin)")
 	return cmd
 }
