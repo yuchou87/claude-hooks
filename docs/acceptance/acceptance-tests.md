@@ -35,6 +35,13 @@
 | AT-004a | `rm -rf /` denied → exit 2 | `PreToolUse Bash rm -rf /` payload | exit 2 | ✅ PASS |
 | AT-004b | `rm -rf /` denied → deny JSON in stdout | `PreToolUse Bash rm -rf /` payload | stdout contains `permissionDecision` | ✅ PASS |
 
+### Dynamic Rules (YAML + Scripts)
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-007 | HTTP server loads YAML deny rule | `POST /hook` Write tool with config having deny-write rule | body contains `permissionDecision`, status 200 | ✅ PASS |
+| AT-008 | HTTP server loads JS script deny rule | `POST /hook` Write tool with script returning deny | body contains `permissionDecision`, status 200 | ✅ PASS |
+
 ---
 
 > **Adding a new scenario:**

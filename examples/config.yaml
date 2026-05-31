@@ -1,0 +1,15 @@
+# ~/.claude-hooks/config.yaml — example YAML rules
+rules:
+  - name: protect-secrets
+    event: PreToolUse
+    when:
+      tool: [Write, Edit]
+      file_path: ["**/.env", "**/secrets/**", "**/*.pem", "**/*.key"]
+    decision: deny
+    reason: "禁止修改密钥文件"
+
+  - name: allow-read-only
+    event: PreToolUse
+    when:
+      tool: [Read, Glob, LS]
+    decision: allow
