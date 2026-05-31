@@ -319,6 +319,38 @@ contains "AT-010c" "list command outputs 'Total:' on stderr"          "Total:"  
 # AT-011: uninstall --help shows usage
 contains "AT-011" "uninstall --help shows usage" "Remove claude-hooks" "$BIN uninstall --help"
 
+# AT-012: validate passes with valid YAML
+AT012_DIR=$(mktemp -d)
+trap 'rm -rf "$WORKDIR" "$AT007_DIR" "$AT008_DIR" "$AT009_DIR" "$AT012_DIR"' EXIT
+cat > "$AT012_DIR/config.yaml" <<'YAML'
+rules:
+  - name: deny-rm
+    event: PreToolUse
+    when:
+      tool: [Bash]
+    decision: deny
+    reason: no rm
+YAML
+run "AT-012" "validate succeeds with valid YAML (exit 0)" "$BIN validate --config $AT012_DIR/config.yaml --scripts-dir $AT012_DIR/scripts 2>&1"
+contains "AT-012b" "validate passes with valid YAML" "All checks passed" "$BIN validate --config $AT012_DIR/config.yaml --scripts-dir $AT012_DIR/scripts 2>&1"
+
+# AT-012a: stdout must be empty when validate succeeds (stdout-purity constraint)
+AT012a_STDOUT=$("$BIN" validate --config "$AT012_DIR/config.yaml" --scripts-dir "$AT012_DIR/scripts" 2>/dev/null || true)
+if [ -z "$AT012a_STDOUT" ]; then
+  ok "AT-012a: validate stdout is empty on success (stdout-purity constraint)"
+else
+  fail "AT-012a: validate stdout not empty: $AT012a_STDOUT"
+fi
+
+# AT-012c: validate exits 1 on invalid YAML (empty rule name)
+cat > "$AT012_DIR/bad_config.yaml" <<'YAML'
+rules:
+  - name: ""
+    event: PreToolUse
+    decision: deny
+YAML
+exits_with "AT-012c" "validate exits 1 on invalid YAML (empty rule name)" 1 "$BIN validate --config $AT012_DIR/bad_config.yaml"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

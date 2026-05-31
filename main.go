@@ -16,8 +16,10 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:   "claude-hooks",
-		Short: "Claude Code hook framework",
+		Use:          "claude-hooks",
+		Short:        "Claude Code hook framework",
+		Version:      "1.0.0",
+		SilenceUsage: true,
 	}
 
 	root.AddCommand(newRunCmd())
@@ -25,6 +27,7 @@ func main() {
 	root.AddCommand(newServeCmd())
 	root.AddCommand(newListCmd())
 	root.AddCommand(newUninstallCmd())
+	root.AddCommand(newValidateCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -108,6 +111,49 @@ func newListCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "  [dynamic] %s  events=%v\n", r.Name, r.Events)
 			}
 			fmt.Fprintf(os.Stderr, "Total: %d rule(s)\n", len(native)+len(dynamic))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
+	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
+	return cmd
+}
+
+func newValidateCmd() *cobra.Command {
+	var configPath, scriptsDir string
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Validate config.yaml and scripts for syntax errors",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if configPath == "" || scriptsDir == "" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("cannot determine home directory: %w", err)
+				}
+				if configPath == "" {
+					configPath = filepath.Join(home, ".claude-hooks", "config.yaml")
+				}
+				if scriptsDir == "" {
+					scriptsDir = filepath.Join(home, ".claude-hooks", "scripts")
+				}
+			}
+
+			checks, ok := hooks.ValidateDynamicRules(configPath, scriptsDir)
+			for _, c := range checks {
+				symbol := "✓"
+				if !c.OK {
+					symbol = "✗"
+				}
+				if c.Detail != "" {
+					fmt.Fprintf(os.Stderr, "  %s %s: %s\n", symbol, c.Label, c.Detail)
+				} else {
+					fmt.Fprintf(os.Stderr, "  %s %s\n", symbol, c.Label)
+				}
+			}
+			if !ok {
+				return fmt.Errorf("validation failed")
+			}
+			fmt.Fprintln(os.Stderr, "All checks passed.")
 			return nil
 		},
 	}
