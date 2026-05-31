@@ -24,6 +24,28 @@ type logEntry struct {
 	Reason  string `json:"reason,omitempty"`
 }
 
+// LogInvocation writes a debug-level entry for every event received by Dispatch.
+// Only fires when CLAUDE_HOOKS_DEBUG=1.
+func LogInvocation(ev Input) {
+	if os.Getenv("CLAUDE_HOOKS_DEBUG") != "1" {
+		return
+	}
+	entry := map[string]any{
+		"ts":      time.Now().UTC().Format(time.RFC3339),
+		"level":   "debug",
+		"event":   ev.HookEventName,
+		"session": ev.SessionID,
+		"tool":    ev.ToolName,
+	}
+	line, _ := json.Marshal(entry)
+	line = append(line, '\n')
+	logMu.Lock()
+	defer logMu.Unlock()
+	if f, err := openLogFile(); err == nil {
+		f.Write(line) //nolint:errcheck
+	}
+}
+
 // LogDecision writes a decision log entry. Only logs deny/block outcomes by default.
 // Set CLAUDE_HOOKS_DEBUG=1 to log all outcomes.
 func LogDecision(ev Input, out *Output, ruleName string) {
@@ -64,7 +86,7 @@ func LogDecision(ev Input, out *Output, ruleName string) {
 	if err != nil {
 		return
 	}
-	f.Write(line)
+	f.Write(line) //nolint:errcheck
 }
 
 func openLogFile() (*os.File, error) {
@@ -85,6 +107,9 @@ func openLogFile() (*os.File, error) {
 }
 
 func logDir() string {
+	if override := os.Getenv("CLAUDE_HOOKS_LOG_DIR"); override != "" {
+		return override
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".claude-hooks", "logs")
 }
@@ -104,6 +129,17 @@ func LogError(ev Input, msg string, err error) {
 	logMu.Lock()
 	defer logMu.Unlock()
 	if f, err := openLogFile(); err == nil {
-		f.Write(line)
+		f.Write(line) //nolint:errcheck
+	}
+}
+
+// ResetLogFileForTest closes and resets the cached log file handle.
+// Call from t.Cleanup in tests that change CLAUDE_HOOKS_LOG_DIR.
+func ResetLogFileForTest() {
+	logMu.Lock()
+	defer logMu.Unlock()
+	if logFile != nil {
+		logFile.Close()
+		logFile = nil
 	}
 }

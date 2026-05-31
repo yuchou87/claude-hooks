@@ -105,6 +105,12 @@
 |---|---|---|---|---|
 | AT-019 | `test` command with Stop event payload | `claude-hooks test < stop.json` | Exit 0, no crash | expected pass |
 
+## CLAUDE_HOOKS_DEBUG Invocation Logging
+
+| ID | Scenario | Command | Expected | Status |
+|---|---|---|---|---|
+| AT-020 | `CLAUDE_HOOKS_DEBUG=1` writes debug log on dispatch | `CLAUDE_HOOKS_DEBUG=1 CLAUDE_HOOKS_LOG_DIR=<tmp> claude-hooks run < payload.json` | `claude-hooks.jsonl` created with `"level":"debug"` entry | expected pass |
+
 ---
 
 > **Adding a new scenario:**

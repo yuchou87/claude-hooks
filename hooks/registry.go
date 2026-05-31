@@ -57,6 +57,8 @@ func Dispatch(raw []byte) *Output {
 		return nil // fail-open
 	}
 
+	LogInvocation(ev) // debug-level, no-op unless CLAUDE_HOOKS_DEBUG=1
+
 	stat := active.Load()
 	dyn := dynamic.Load()
 

@@ -408,6 +408,20 @@ echo "=== Stop event notification ==="
 STOP_PAYLOAD='{"hook_event_name":"Stop","session_id":"s","transcript_path":"/t","cwd":"/tmp/proj"}'
 run "AT-019" "test command passes Stop event through (exit 0)" "printf '%s' '$STOP_PAYLOAD' | $BIN test"
 
+echo ""
+echo "=== CLAUDE_HOOKS_DEBUG invocation logging ==="
+
+# AT-020: CLAUDE_HOOKS_DEBUG=1 writes debug log entry on event dispatch
+AT020_LOG_DIR=$(mktemp -d)
+SAFE_PAYLOAD='{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Bash","tool_input":{"command":"ls"}}'
+( export CLAUDE_HOOKS_DEBUG=1; export CLAUDE_HOOKS_LOG_DIR="$AT020_LOG_DIR"; printf '%s' "$SAFE_PAYLOAD" | "$BIN" run > /dev/null 2>&1 ) || true
+if [ -f "$AT020_LOG_DIR/claude-hooks.jsonl" ] && grep -q '"level":"debug"' "$AT020_LOG_DIR/claude-hooks.jsonl"; then
+  ok "AT-020: CLAUDE_HOOKS_DEBUG=1 writes debug invocation log"
+else
+  fail "AT-020: CLAUDE_HOOKS_DEBUG=1 — debug log not found in $AT020_LOG_DIR"
+fi
+rm -rf "$AT020_LOG_DIR"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
