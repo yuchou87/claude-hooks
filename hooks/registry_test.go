@@ -114,3 +114,32 @@ func TestStoreDynamic_ConcurrentWithDispatch_NoRace(t *testing.T) {
 	}
 	<-done
 }
+
+func TestListNativeRules(t *testing.T) {
+	t.Cleanup(hooks.ResetRegistryForTest)
+	hooks.Register(hooks.Rule{Name: "r1", Events: []string{"PreToolUse"}, Run: func(hooks.Input) *hooks.Output { return nil }})
+	hooks.Register(hooks.Rule{Name: "r2", Events: []string{"PostToolUse"}, Run: func(hooks.Input) *hooks.Output { return nil }})
+
+	got := hooks.ListNativeRules()
+	if len(got) != 2 {
+		t.Fatalf("want 2 rules, got %d", len(got))
+	}
+	if got[0].Name != "r1" || got[1].Name != "r2" {
+		t.Errorf("unexpected order: %v", got)
+	}
+}
+
+func TestListNativeRules_CopyIsolation(t *testing.T) {
+	t.Cleanup(hooks.ResetRegistryForTest)
+	hooks.Register(hooks.Rule{Name: "iso", Events: []string{"PreToolUse"}, Run: func(hooks.Input) *hooks.Output { return nil }})
+
+	got := hooks.ListNativeRules()
+	// Mutate the returned copy
+	got[0].Events[0] = "Tampered"
+
+	// Registry should be unaffected
+	got2 := hooks.ListNativeRules()
+	if got2[0].Events[0] != "PreToolUse" {
+		t.Errorf("mutation of returned slice leaked into registry: got %q", got2[0].Events[0])
+	}
+}

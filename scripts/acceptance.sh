@@ -302,6 +302,93 @@ fi
 kill $DAEMON_PID_AT009 2>/dev/null; wait $DAEMON_PID_AT009 2>/dev/null
 trap 'rm -rf "$WORKDIR" "$AT007_DIR" "$AT008_DIR" "$AT009_DIR"' EXIT
 
+echo ""
+echo "=== CLI Utility Commands ==="
+
+# AT-010: list command must write to stderr only (stdout must be empty)
+AT010_STDOUT=$("$BIN" list 2>/dev/null || true)
+if [ -z "$AT010_STDOUT" ]; then
+  ok "AT-010a: list command stdout is empty (stdout-purity constraint)"
+else
+  fail "AT-010a: list command stdout not empty: $AT010_STDOUT"
+fi
+# AT-010b/c: expected strings appear on stderr
+contains "AT-010b" "list command outputs 'Native Go rules' on stderr" "Native Go rules" "$BIN list 2>&1 1>/dev/null"
+contains "AT-010c" "list command outputs 'Total:' on stderr"          "Total:"           "$BIN list 2>&1 1>/dev/null"
+
+# AT-011: uninstall --help shows usage
+contains "AT-011" "uninstall --help shows usage" "Remove claude-hooks" "$BIN uninstall --help"
+# AT-011a: uninstall stdout is empty (stdout-purity constraint)
+AT011_STDOUT=$("$BIN" uninstall --scope user 2>/dev/null || true)
+if [ -z "$AT011_STDOUT" ]; then
+  ok "AT-011a: uninstall stdout is empty (stdout-purity constraint)"
+else
+  fail "AT-011a: uninstall stdout not empty: $AT011_STDOUT"
+fi
+
+# AT-012: validate passes with valid YAML
+AT012_DIR=$(mktemp -d)
+trap 'rm -rf "$WORKDIR" "$AT007_DIR" "$AT008_DIR" "$AT009_DIR" "$AT012_DIR"' EXIT
+cat > "$AT012_DIR/config.yaml" <<'YAML'
+rules:
+  - name: deny-rm
+    event: PreToolUse
+    when:
+      tool: [Bash]
+    decision: deny
+    reason: no rm
+YAML
+run "AT-012" "validate succeeds with valid YAML (exit 0)" "$BIN validate --config $AT012_DIR/config.yaml --scripts-dir $AT012_DIR/scripts 2>&1"
+contains "AT-012b" "validate passes with valid YAML" "All checks passed" "$BIN validate --config $AT012_DIR/config.yaml --scripts-dir $AT012_DIR/scripts 2>&1"
+
+# AT-012a: stdout must be empty when validate succeeds (stdout-purity constraint)
+AT012a_STDOUT=$("$BIN" validate --config "$AT012_DIR/config.yaml" --scripts-dir "$AT012_DIR/scripts" 2>/dev/null || true)
+if [ -z "$AT012a_STDOUT" ]; then
+  ok "AT-012a: validate stdout is empty on success (stdout-purity constraint)"
+else
+  fail "AT-012a: validate stdout not empty: $AT012a_STDOUT"
+fi
+
+# AT-012c: validate exits 1 on invalid YAML (empty rule name)
+cat > "$AT012_DIR/bad_config.yaml" <<'YAML'
+rules:
+  - name: ""
+    event: PreToolUse
+    decision: deny
+YAML
+exits_with "AT-012c" "validate exits 1 on invalid YAML (empty rule name)" 1 "$BIN validate --config $AT012_DIR/bad_config.yaml"
+
+echo ""
+echo "=== Test Command ==="
+
+# AT-013: test command dispatches deny rule
+run "AT-013a" "test command dispatches PreToolUse rm-rf payload" "printf '%s' '$DENY_PAYLOAD' | $BIN test"
+contains "AT-013b" "test command outputs permissionDecision" "permissionDecision" "printf '%s' '$DENY_PAYLOAD' | $BIN test"
+
+# AT-014: doctor --help shows usage
+run "AT-014" "doctor --help shows usage" "$BIN doctor --help"
+contains "AT-014b" "doctor --help shows 'Diagnose'" "Diagnose" "$BIN doctor --help"
+
+echo ""
+echo "=== gen-types Command ==="
+
+# AT-015: gen-types outputs TypeScript
+run "AT-015" "gen-types outputs TypeScript" "$BIN gen-types"
+contains "AT-015b" "gen-types contains HookInput" "HookInput" "$BIN gen-types"
+contains "AT-015c" "gen-types contains permissionDecision" "permissionDecision" "$BIN gen-types"
+
+echo ""
+echo "=== Top-Level Help Output ==="
+
+# AT-016: top-level --help lists all new commands
+AT016_HELP=$("$BIN" --help 2>&1 || true)
+if echo "$AT016_HELP" | grep -q "uninstall";  then ok "AT-016a: --help lists uninstall"; else fail "AT-016a: --help lists uninstall"; fi
+if echo "$AT016_HELP" | grep -q "list";       then ok "AT-016b: --help lists list"; else fail "AT-016b: --help lists list"; fi
+if echo "$AT016_HELP" | grep -q "validate";   then ok "AT-016c: --help lists validate"; else fail "AT-016c: --help lists validate"; fi
+if echo "$AT016_HELP" | grep -q "test";       then ok "AT-016d: --help lists test"; else fail "AT-016d: --help lists test"; fi
+if echo "$AT016_HELP" | grep -q "doctor";     then ok "AT-016e: --help lists doctor"; else fail "AT-016e: --help lists doctor"; fi
+if echo "$AT016_HELP" | grep -q "gen-types";  then ok "AT-016f: --help lists gen-types"; else fail "AT-016f: --help lists gen-types"; fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""

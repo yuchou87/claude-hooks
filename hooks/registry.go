@@ -112,3 +112,15 @@ func ResetRegistryForTest() {
 func StoreDynamic(rules []Rule) {
 	dynamic.Store(&ruleSet{rules: rules})
 }
+
+// ListNativeRules returns a snapshot of currently registered native Go rules.
+// The returned slice is a deep copy — callers may modify it freely.
+func ListNativeRules() []Rule {
+	s := active.Load()
+	out := make([]Rule, len(s.rules))
+	for i, r := range s.rules {
+		out[i] = r
+		out[i].Events = append([]string{}, r.Events...)
+	}
+	return out
+}

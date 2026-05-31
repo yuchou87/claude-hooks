@@ -21,7 +21,7 @@ func Install(mode, scope, addr string, dryRun bool) error {
 		return fmt.Errorf("cannot determine binary path: %w", err)
 	}
 
-	settingsPath, err := settingsFilePath(scope)
+	settingsPath, err := SettingsFilePath(scope)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func installLaunchd(binaryPath, addr string) error {
 	return nil
 }
 
-func settingsFilePath(scope string) (string, error) {
+func SettingsFilePath(scope string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

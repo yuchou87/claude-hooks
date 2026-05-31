@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -16,13 +17,22 @@ import (
 
 func main() {
 	root := &cobra.Command{
-		Use:   "claude-hooks",
-		Short: "Claude Code hook framework",
+		Use:           "claude-hooks",
+		Short:         "Claude Code hook framework",
+		Version:       "1.0.0",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newInstallCmd())
 	root.AddCommand(newServeCmd())
+	root.AddCommand(newListCmd())
+	root.AddCommand(newUninstallCmd())
+	root.AddCommand(newValidateCmd())
+	root.AddCommand(newTestCmd())
+	root.AddCommand(newDoctorCmd())
+	root.AddCommand(newGenTypesCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -54,6 +64,106 @@ func newInstallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&scope, "scope", "user", "user|project|local")
 	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "daemon listen address (http mode only; must match serve --addr)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print diff without writing")
+	return cmd
+}
+
+func newUninstallCmd() *cobra.Command {
+	var scope string
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "Remove claude-hooks entries from settings.json",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return hooks.Uninstall(scope, dryRun)
+		},
+	}
+	cmd.Flags().StringVar(&scope, "scope", "user", "user|project|local")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print diff without writing")
+	return cmd
+}
+
+func newListCmd() *cobra.Command {
+	var configPath, scriptsDir string
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all active rules (native Go + YAML + scripts)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if configPath == "" || scriptsDir == "" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("cannot determine home directory: %w", err)
+				}
+				if configPath == "" {
+					configPath = filepath.Join(home, ".claude-hooks", "config.yaml")
+				}
+				if scriptsDir == "" {
+					scriptsDir = filepath.Join(home, ".claude-hooks", "scripts")
+				}
+			}
+
+			native := hooks.ListNativeRules()
+			fmt.Fprintf(os.Stderr, "Native Go rules (%d):\n", len(native))
+			for _, r := range native {
+				fmt.Fprintf(os.Stderr, "  [native] %s  events=%v\n", r.Name, r.Events)
+			}
+
+			dynamic, err := hooks.BuildDynamicRules(configPath, scriptsDir)
+			if err != nil {
+				return fmt.Errorf("load dynamic rules: %w", err)
+			}
+			fmt.Fprintf(os.Stderr, "Dynamic rules (%d):\n", len(dynamic))
+			for _, r := range dynamic {
+				fmt.Fprintf(os.Stderr, "  [dynamic] %s  events=%v\n", r.Name, r.Events)
+			}
+			fmt.Fprintf(os.Stderr, "Total: %d rule(s)\n", len(native)+len(dynamic))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
+	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
+	return cmd
+}
+
+func newValidateCmd() *cobra.Command {
+	var configPath, scriptsDir string
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Validate config.yaml and scripts for syntax errors",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if configPath == "" || scriptsDir == "" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("cannot determine home directory: %w", err)
+				}
+				if configPath == "" {
+					configPath = filepath.Join(home, ".claude-hooks", "config.yaml")
+				}
+				if scriptsDir == "" {
+					scriptsDir = filepath.Join(home, ".claude-hooks", "scripts")
+				}
+			}
+
+			checks, ok := hooks.ValidateDynamicRules(configPath, scriptsDir)
+			for _, c := range checks {
+				symbol := "✓"
+				if !c.OK {
+					symbol = "✗"
+				}
+				if c.Detail != "" {
+					fmt.Fprintf(os.Stderr, "  %s %s: %s\n", symbol, c.Label, c.Detail)
+				} else {
+					fmt.Fprintf(os.Stderr, "  %s %s\n", symbol, c.Label)
+				}
+			}
+			if !ok {
+				return fmt.Errorf("validation failed")
+			}
+			fmt.Fprintln(os.Stderr, "All checks passed.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
+	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
 	return cmd
 }
 
@@ -129,5 +239,106 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "listen address (loopback only)")
 	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
 	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
+	return cmd
+}
+
+func newTestCmd() *cobra.Command {
+	var payload string
+	cmd := &cobra.Command{
+		Use:   "test",
+		Short: "Dry-run a hook payload through all rules (reads JSON from stdin)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var raw []byte
+			var err error
+			if payload != "" {
+				raw = []byte(payload)
+			} else {
+				raw, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("read stdin: %w", err)
+				}
+			}
+			out := hooks.Dispatch(raw)
+			b, err := out.JSON()
+			if err != nil {
+				return fmt.Errorf("encode output: %w", err)
+			}
+			fmt.Println(string(b))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&payload, "payload", "", "raw JSON payload (default: read from stdin)")
+	return cmd
+}
+
+func newDoctorCmd() *cobra.Command {
+	var settingsScope, configPath, scriptsDir string
+	cmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Diagnose installation health",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			settingsPath, err := hooks.SettingsFilePath(settingsScope)
+			if err != nil {
+				return err
+			}
+			if configPath == "" || scriptsDir == "" {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return fmt.Errorf("cannot determine home directory: %w", err)
+				}
+				if configPath == "" {
+					configPath = filepath.Join(home, ".claude-hooks", "config.yaml")
+				}
+				if scriptsDir == "" {
+					scriptsDir = filepath.Join(home, ".claude-hooks", "scripts")
+				}
+			}
+
+			checks := hooks.DoctorReport(settingsPath, configPath, scriptsDir)
+			allOK := true
+			for _, c := range checks {
+				symbol := "✓"
+				if !c.OK {
+					symbol = "✗"
+					allOK = false
+				}
+				if c.Detail != "" {
+					fmt.Fprintf(os.Stderr, "  %s %s: %s\n", symbol, c.Label, c.Detail)
+				} else {
+					fmt.Fprintf(os.Stderr, "  %s %s\n", symbol, c.Label)
+				}
+			}
+			if !allOK {
+				return fmt.Errorf("doctor found issues")
+			}
+			fmt.Fprintln(os.Stderr, "All checks passed.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&settingsScope, "scope", "user", "user|project|local")
+	cmd.Flags().StringVar(&configPath, "config", "", "YAML rules file (default: ~/.claude-hooks/config.yaml)")
+	cmd.Flags().StringVar(&scriptsDir, "scripts-dir", "", "scripts directory (default: ~/.claude-hooks/scripts)")
+	return cmd
+}
+
+func newGenTypesCmd() *cobra.Command {
+	var outFile string
+	cmd := &cobra.Command{
+		Use:   "gen-types",
+		Short: "Generate TypeScript type definitions for scripts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ts := hooks.TypeScriptTypes()
+			if outFile != "" {
+				if err := os.WriteFile(outFile, []byte(ts), 0644); err != nil {
+					return fmt.Errorf("write file: %w", err)
+				}
+				fmt.Fprintf(os.Stderr, "TypeScript types written to %s\n", outFile)
+				return nil
+			}
+			fmt.Print(ts)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&outFile, "out", "", "write to file instead of stdout")
 	return cmd
 }
