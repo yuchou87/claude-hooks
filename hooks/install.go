@@ -11,7 +11,8 @@ const markerKey = "_claudeHooksVersion"
 const markerVersion = "1.0.0"
 
 // Install registers claude-hooks in the appropriate settings.json.
-func Install(mode, scope string, dryRun bool) error {
+// addr is the daemon listen address used when mode == "http" (ignored for command mode).
+func Install(mode, scope, addr string, dryRun bool) error {
 	binPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot determine binary path: %w", err)
