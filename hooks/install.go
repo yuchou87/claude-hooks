@@ -13,7 +13,9 @@ const markerKey = "_claudeHooksVersion"
 const markerVersion = "1.0.0"
 
 // Install registers claude-hooks in the appropriate settings.json.
-func Install(mode, scope string, dryRun bool) error {
+// addr is the daemon listen address used for http mode (e.g. "127.0.0.1:8787").
+// Ignored for command mode.
+func Install(mode, scope, addr string, dryRun bool) error {
 	binPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot determine binary path: %w", err)
@@ -28,12 +30,13 @@ func Install(mode, scope string, dryRun bool) error {
 		return fmt.Errorf("cannot create settings dir: %w", err)
 	}
 
-	return InstallToFile(settingsPath, binPath, mode, dryRun)
+	return InstallToFile(settingsPath, binPath, mode, addr, dryRun)
 }
 
 // InstallToFile writes hook entries into the given settings file.
 // Exported for testing with temporary directories.
-func InstallToFile(settingsPath, binaryPath, mode string, dryRun bool) error {
+// addr is only used for http mode; pass "" for command mode.
+func InstallToFile(settingsPath, binaryPath, mode, addr string, dryRun bool) error {
 	var settings map[string]any
 	if data, err := os.ReadFile(settingsPath); err == nil {
 		if err := json.Unmarshal(data, &settings); err != nil {
@@ -58,9 +61,12 @@ func InstallToFile(settingsPath, binaryPath, mode string, dryRun bool) error {
 			markerKey: markerVersion,
 		}
 	case "http":
+		if addr == "" {
+			addr = "127.0.0.1:8787"
+		}
 		entry = map[string]any{
 			"type":             "http",
-			"url":              "http://127.0.0.1:8787/hook",
+			"url":              "http://" + addr + "/hook",
 			markerKey:          markerVersion,
 			"_claudeHooksMode": "http",
 		}
@@ -103,7 +109,7 @@ func InstallToFile(settingsPath, binaryPath, mode string, dryRun bool) error {
 
 	// For http mode on macOS: generate and load the launchd plist.
 	if mode == "http" && runtime.GOOS == "darwin" && !dryRun {
-		if err := installLaunchd(binaryPath, "127.0.0.1:8787"); err != nil {
+		if err := installLaunchd(binaryPath, addr); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: launchd setup failed: %v\n", err)
 			fmt.Fprintf(os.Stderr, "  Run manually: launchctl load %s\n", launchdPlistPath())
 		}
@@ -114,6 +120,8 @@ func InstallToFile(settingsPath, binaryPath, mode string, dryRun bool) error {
 // GeneratePlistContent returns the launchd plist XML for the HTTP daemon.
 // Exported so tests can verify the content without side effects.
 func GeneratePlistContent(binaryPath, addr string) string {
+	home, _ := os.UserHomeDir()
+	logPath := filepath.Join(home, ".claude-hooks", "logs", "daemon-stderr.log")
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -132,12 +140,12 @@ func GeneratePlistContent(binaryPath, addr string) string {
     <key>RunAtLoad</key>
     <true/>
     <key>StandardErrorPath</key>
-    <string>/tmp/claude-hooks-stderr.log</string>
+    <string>%s</string>
     <key>EnvironmentVariables</key>
     <dict/>
 </dict>
 </plist>
-`, binaryPath, addr)
+`, binaryPath, addr, logPath)
 }
 
 func launchdPlistPath() string {

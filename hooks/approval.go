@@ -77,8 +77,12 @@ end tell`, prompt)
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			// osascript exit 1 = user cancelled / Esc / gave up → reject, not an error
-			return false, nil
+			if exitErr.ExitCode() == 1 {
+				// osascript exit 1 = user cancelled / Esc / gave up → reject, not an error
+				return false, nil
+			}
+			// Other non-zero exit (script syntax error, signal, etc.) → fail-open
+			return false, err
 		}
 		// osascript not found or other execution error → fail-open
 		return false, err

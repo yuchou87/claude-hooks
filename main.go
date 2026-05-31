@@ -40,17 +40,18 @@ func newRunCmd() *cobra.Command {
 }
 
 func newInstallCmd() *cobra.Command {
-	var mode, scope string
+	var mode, scope, addr string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Register claude-hooks in ~/.claude/settings.json",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return hooks.Install(mode, scope, dryRun)
+			return hooks.Install(mode, scope, addr, dryRun)
 		},
 	}
 	cmd.Flags().StringVar(&mode, "mode", "command", "command|http")
 	cmd.Flags().StringVar(&scope, "scope", "user", "user|project|local")
+	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "daemon listen address (http mode only; must match serve --addr)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print diff without writing")
 	return cmd
 }

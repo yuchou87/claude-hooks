@@ -15,7 +15,7 @@ func TestInstall_WritesHookEntry(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	os.WriteFile(settingsPath, []byte("{}"), 0600)
 
-	err := hooks.InstallToFile(settingsPath, "/usr/local/bin/claude-hooks", "command", false)
+	err := hooks.InstallToFile(settingsPath, "/usr/local/bin/claude-hooks", "command", "", false)
 	if err != nil {
 		t.Fatalf("install failed: %v", err)
 	}
@@ -40,8 +40,8 @@ func TestInstall_Idempotent(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	os.WriteFile(settingsPath, []byte("{}"), 0600)
 
-	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", false)
-	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", false)
+	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", "", false)
+	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", "", false)
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]any
@@ -59,7 +59,7 @@ func TestInstall_CorruptJSON_ReturnsError(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	os.WriteFile(settingsPath, []byte("{not valid json"), 0600)
 
-	err := hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", false)
+	err := hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", "", false)
 	if err == nil {
 		t.Fatal("corrupt JSON should return error, not silently overwrite")
 	}
@@ -70,7 +70,7 @@ func TestInstall_DryRun_DoesNotWrite(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	os.WriteFile(settingsPath, []byte("{}"), 0600)
 
-	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", true /* dry-run */)
+	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "command", "", true /* dry-run */)
 
 	data, _ := os.ReadFile(settingsPath)
 	if string(data) != "{}" {
@@ -83,7 +83,7 @@ func TestInstall_HttpMode_WritesHookEntry(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	os.WriteFile(settingsPath, []byte("{}"), 0600)
 
-	err := hooks.InstallToFile(settingsPath, "/usr/local/bin/claude-hooks", "http", false)
+	err := hooks.InstallToFile(settingsPath, "/usr/local/bin/claude-hooks", "http", "127.0.0.1:8787", false)
 	if err != nil {
 		t.Fatalf("http install failed: %v", err)
 	}
@@ -114,8 +114,8 @@ func TestInstall_HttpMode_Idempotent(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	os.WriteFile(settingsPath, []byte("{}"), 0600)
 
-	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "http", false)
-	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "http", false)
+	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "http", "127.0.0.1:8787", false)
+	hooks.InstallToFile(settingsPath, "/bin/claude-hooks", "http", "127.0.0.1:8787", false)
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]any

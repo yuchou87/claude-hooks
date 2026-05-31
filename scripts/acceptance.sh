@@ -111,7 +111,7 @@ echo "=== HTTP Daemon ==="
 DAEMON_PORT=18787  # non-default port to avoid conflicts
 $BIN serve --addr "127.0.0.1:$DAEMON_PORT" &
 DAEMON_PID=$!
-trap 'kill $DAEMON_PID 2>/dev/null; wait $DAEMON_PID 2>/dev/null' EXIT
+trap 'kill $DAEMON_PID 2>/dev/null; wait $DAEMON_PID 2>/dev/null; rm -rf "$WORKDIR"' EXIT
 
 # Wait up to 2s for daemon to be ready
 READY=0
@@ -137,10 +137,10 @@ else
 
   # AT-006: SessionEnd → no rule, not PreToolUse → empty 200 (no dialog)
   AT006_PAYLOAD='{"hook_event_name":"SessionEnd","session_id":"s","transcript_path":"/t","cwd":"/"}'
-  AT006_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://127.0.0.1:$DAEMON_PORT/hook" \
-    -H 'Content-Type: application/json' -d "$AT006_PAYLOAD")
-  AT006_BODY=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT/hook" \
+  AT006_RESPONSE=$(curl -s -w "__HTTPSTATUS__%{http_code}" -X POST "http://127.0.0.1:$DAEMON_PORT/hook" \
     -H 'Content-Type: application/json' -d "$AT006_PAYLOAD" 2>/dev/null)
+  AT006_BODY="${AT006_RESPONSE%__HTTPSTATUS__*}"
+  AT006_STATUS="${AT006_RESPONSE##*__HTTPSTATUS__}"
   if [ "$AT006_STATUS" = "200" ] && [ -z "$(echo "$AT006_BODY" | tr -d '[:space:]')" ]; then
     ok "AT-006: HTTP SessionEnd → empty 200 (no dialog)"
   else
@@ -149,7 +149,7 @@ else
 
   kill $DAEMON_PID 2>/dev/null
   wait $DAEMON_PID 2>/dev/null
-  trap - EXIT
+  trap 'rm -rf "$WORKDIR"' EXIT
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────

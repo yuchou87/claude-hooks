@@ -4,7 +4,10 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 )
+
+const maxRequestBodyBytes = 1 << 20 // 1 MiB
 
 // Server is the HTTP daemon that receives hook events from Claude Code.
 // It binds to 127.0.0.1 only and holds POST /hook connections open
@@ -29,7 +32,12 @@ func NewServer(addr string, approver *Approver) *Server {
 		shutCtx:  ctx,
 	}
 	s.mux.HandleFunc("/hook", s.hookHandler)
-	s.srv = &http.Server{Addr: addr, Handler: s.mux}
+	s.srv = &http.Server{
+		Addr:        addr,
+		Handler:     s.mux,
+		ReadTimeout: 10 * time.Second,  // request body must arrive within 10s
+		WriteTimeout: 60 * time.Second, // approval dialog can hold the response for up to 55s
+	}
 	return s
 }
 
@@ -51,9 +59,10 @@ func (s *Server) hookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusOK) // fail-open: oversized or read error
 		return
 	}
 
@@ -92,5 +101,5 @@ func writeHookResponse(w http.ResponseWriter, out *Output) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	_, _ = w.Write(b)
 }
