@@ -104,6 +104,54 @@ else
   fail "AT-004b: permissionDecision not found in stdout: $AT004_STDOUT"
 fi
 
+echo ""
+echo "=== HTTP Daemon ==="
+
+# Start daemon in background; kill on exit
+DAEMON_PORT=18787  # non-default port to avoid conflicts
+$BIN serve --addr "127.0.0.1:$DAEMON_PORT" &
+DAEMON_PID=$!
+trap 'kill $DAEMON_PID 2>/dev/null; wait $DAEMON_PID 2>/dev/null' EXIT
+
+# Wait up to 2s for daemon to be ready
+READY=0
+for i in $(seq 1 20); do
+  if curl -sf "http://127.0.0.1:$DAEMON_PORT/hook" -X POST -d '{}' -H 'Content-Type: application/json' >/dev/null 2>&1; then
+    READY=1; break
+  fi
+  sleep 0.1
+done
+if [ $READY -eq 0 ]; then
+  fail "AT-005: daemon did not start within 2s"
+  fail "AT-006: daemon did not start within 2s"
+else
+  # AT-005: rm -rf / → bash-safety local rule → deny (no dialog)
+  AT005_PAYLOAD='{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Bash","tool_input":{"command":"rm -rf /"}}'
+  AT005_BODY=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT/hook" \
+    -H 'Content-Type: application/json' -d "$AT005_PAYLOAD" 2>/dev/null)
+  if echo "$AT005_BODY" | grep -q "permissionDecision"; then
+    ok "AT-005: HTTP local deny rule fires without dialog"
+  else
+    fail "AT-005: HTTP local deny rule — permissionDecision missing in body: $AT005_BODY"
+  fi
+
+  # AT-006: SessionEnd → no rule, not PreToolUse → empty 200 (no dialog)
+  AT006_PAYLOAD='{"hook_event_name":"SessionEnd","session_id":"s","transcript_path":"/t","cwd":"/"}'
+  AT006_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://127.0.0.1:$DAEMON_PORT/hook" \
+    -H 'Content-Type: application/json' -d "$AT006_PAYLOAD")
+  AT006_BODY=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT/hook" \
+    -H 'Content-Type: application/json' -d "$AT006_PAYLOAD" 2>/dev/null)
+  if [ "$AT006_STATUS" = "200" ] && [ -z "$(echo "$AT006_BODY" | tr -d '[:space:]')" ]; then
+    ok "AT-006: HTTP SessionEnd → empty 200 (no dialog)"
+  else
+    fail "AT-006: HTTP SessionEnd — want 200+empty, got status=$AT006_STATUS body=$AT006_BODY"
+  fi
+
+  kill $DAEMON_PID 2>/dev/null
+  wait $DAEMON_PID 2>/dev/null
+  trap - EXIT
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
