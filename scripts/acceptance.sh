@@ -238,7 +238,69 @@ else
 fi
 
 kill $DAEMON_PID_AT008 2>/dev/null; wait $DAEMON_PID_AT008 2>/dev/null
-trap 'rm -rf "$WORKDIR" "$AT007_DIR" "$AT008_DIR"' EXIT
+
+# AT-009: hot-reload — mutate config file while daemon is running, new rule fires
+AT009_DIR=$(mktemp -d)
+trap 'rm -rf "$AT009_DIR"' EXIT
+
+# Start with empty rules
+cat > "$AT009_DIR/config.yaml" <<'YAML'
+rules: []
+YAML
+
+DAEMON_PORT_AT009=18790
+"$BIN" serve --addr "127.0.0.1:$DAEMON_PORT_AT009" --config "$AT009_DIR/config.yaml" &
+DAEMON_PID_AT009=$!
+trap 'kill $DAEMON_PID_AT009 2>/dev/null; wait $DAEMON_PID_AT009 2>/dev/null; rm -rf "$AT009_DIR"' EXIT
+
+READY_AT009=0
+for i in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:$DAEMON_PORT_AT009/hook" -X POST -d '{}' -H 'Content-Type: application/json' >/dev/null 2>&1; then
+    READY_AT009=1; break
+  fi
+  sleep 0.1
+done
+
+if [ $READY_AT009 -eq 0 ]; then
+  fail "AT-009: daemon did not start within 3s"
+else
+  # Confirm YAML rule is NOT yet loaded (response must not contain the YAML rule's reason)
+  AT009_BEFORE=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT_AT009/hook" \
+    -H 'Content-Type: application/json' \
+    -d '{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Write","tool_input":{"file_path":"/tmp/x"}}' 2>/dev/null)
+  if echo "$AT009_BEFORE" | grep -q "AT-009 hot-reload test"; then
+    fail "AT-009a: YAML rule should not be active before hot-reload, got: $AT009_BEFORE"
+  else
+    ok "AT-009a: before hot-reload — YAML rule not yet loaded"
+  fi
+
+  # Hot-reload: write a deny rule to config.yaml
+  cat > "$AT009_DIR/config.yaml" <<'YAML'
+rules:
+  - name: at009-deny-write
+    event: PreToolUse
+    when:
+      tool: [Write]
+    decision: deny
+    reason: "AT-009 hot-reload test"
+YAML
+
+  # Wait for debounce (200ms) + margin
+  sleep 0.5
+
+  # Confirm YAML rule fires after hot-reload (identified by its specific reason)
+  AT009_AFTER=$(curl -s -X POST "http://127.0.0.1:$DAEMON_PORT_AT009/hook" \
+    -H 'Content-Type: application/json' \
+    -d '{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Write","tool_input":{"file_path":"/tmp/x"}}' 2>/dev/null)
+  if echo "$AT009_AFTER" | grep -q "AT-009 hot-reload test"; then
+    ok "AT-009b: after hot-reload — YAML deny rule fires without restart"
+  else
+    fail "AT-009b: after hot-reload — expected YAML rule reason in body: $AT009_AFTER"
+  fi
+fi
+
+kill $DAEMON_PID_AT009 2>/dev/null; wait $DAEMON_PID_AT009 2>/dev/null
+trap 'rm -rf "$WORKDIR" "$AT007_DIR" "$AT008_DIR" "$AT009_DIR"' EXIT
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 

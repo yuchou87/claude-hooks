@@ -10,7 +10,8 @@ import (
 const watchDebounce = 200 * time.Millisecond
 
 // StartWatcher watches configPath (file) and scriptsDir (directory) for changes.
-// Calls onChange after a 200ms debounce when a write/create/remove event fires.
+// Calls onChange after a 200ms debounce when a write/create/remove/rename event fires.
+// Rename is included because editors like vim write atomically via rename.
 // Returns a stop function to clean up the watcher goroutine.
 // configPath or scriptsDir may be empty string to skip watching that path.
 func StartWatcher(configPath, scriptsDir string, onChange func()) (stop func(), err error) {
@@ -50,7 +51,7 @@ func StartWatcher(configPath, scriptsDir string, onChange func()) (stop func(), 
 				if !ok {
 					return
 				}
-				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) {
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
 					mu.Lock()
 					if timer != nil {
 						timer.Stop()

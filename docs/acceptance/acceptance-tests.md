@@ -35,12 +35,20 @@
 | AT-004a | `rm -rf /` denied → exit 2 | `PreToolUse Bash rm -rf /` payload | exit 2 | ✅ PASS |
 | AT-004b | `rm -rf /` denied → deny JSON in stdout | `PreToolUse Bash rm -rf /` payload | stdout contains `permissionDecision` | ✅ PASS |
 
+### HTTP Daemon
+
+| ID | Scenario | Command | Expected | Status |
+|----|----------|---------|----------|--------|
+| AT-005 | HTTP local deny rule fires without dialog | `POST /hook` Bash `rm -rf /` payload | body contains `permissionDecision`, status 200 | ✅ PASS |
+| AT-006 | HTTP SessionEnd → empty 200 (no dialog) | `POST /hook` SessionEnd payload | status 200, empty body | ✅ PASS |
+
 ### Dynamic Rules (YAML + Scripts)
 
 | ID | Scenario | Command | Expected | Status |
 |----|----------|---------|----------|--------|
 | AT-007 | HTTP server loads YAML deny rule | `POST /hook` Write tool with config having deny-write rule | body contains `permissionDecision`, status 200 | ✅ PASS |
 | AT-008 | HTTP server loads JS script deny rule | `POST /hook` Write tool with script returning deny | body contains `permissionDecision`, status 200 | ✅ PASS |
+| AT-009 | Hot-reload: write YAML rule while server running, new rule fires | mutate config.yaml, wait 400ms, `POST /hook` | body contains `permissionDecision` after reload | ✅ PASS |
 
 ---
 
