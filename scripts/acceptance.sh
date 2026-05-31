@@ -82,6 +82,17 @@ echo "=== Core / CLI ==="
 contains "AT-001" "--version flag"   "claude-hooks"  "$BIN --version"
 contains "AT-002" "--help lists run" "run"            "$BIN --help"
 
+echo ""
+echo "=== Command Mode ==="
+
+# AT-003: bad JSON → fail-open (exit 0, empty stdout)
+exits_with "AT-003" "bad JSON → fail-open (exit 0)" 0 "echo '{bad}' | $BIN run"
+
+# AT-004: bash-safety blocks rm -rf / (exit 2, deny JSON in stdout)
+DENY_PAYLOAD='{"hook_event_name":"PreToolUse","session_id":"s","transcript_path":"/t","cwd":"/","tool_name":"Bash","tool_input":{"command":"rm -rf /"}}'
+exits_with "AT-004a" "rm-rf-slash denied → exit 2" 2 "printf '%s' '$DENY_PAYLOAD' | $BIN run"
+contains   "AT-004b" "rm-rf-slash denied → permissionDecision in stdout" "permissionDecision" "printf '%s' '$DENY_PAYLOAD' | $BIN run"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
