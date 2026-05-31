@@ -74,3 +74,37 @@ func TestGlobalStop_Continue(t *testing.T) {
 		t.Errorf("got %q", out.StopReason)
 	}
 }
+
+func TestAsk_JSON(t *testing.T) {
+	out := hooks.Ask("needs review")
+	b, err := json.Marshal(out.HookSpecific)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(b, &m)
+	if m["permissionDecision"] != "ask" {
+		t.Errorf("want permissionDecision=ask, got %v", m)
+	}
+	if m["permissionDecisionReason"] != "needs review" {
+		t.Errorf("want reason=needs review, got %v", m["permissionDecisionReason"])
+	}
+}
+
+func TestAsk_IsAsk(t *testing.T) {
+	if !hooks.Ask("x").IsAsk() {
+		t.Error("Ask() output should report IsAsk()=true")
+	}
+	if hooks.Deny("x").IsAsk() {
+		t.Error("Deny() output should report IsAsk()=false")
+	}
+	if hooks.Allow().IsAsk() {
+		t.Error("Allow() output should report IsAsk()=false")
+	}
+}
+
+func TestAsk_IsNotDeny(t *testing.T) {
+	if hooks.Ask("x").IsDeny() {
+		t.Error("Ask() output must not report IsDeny()=true")
+	}
+}

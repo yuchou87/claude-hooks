@@ -45,6 +45,14 @@ export interface AllowOutput {
   };
 }
 
+/** Forward to Claude Code's built-in permission dialog */
+export interface AskOutput {
+  hookSpecificOutput: {
+    permissionDecision: "ask";
+    permissionDecisionReason?: string;
+  };
+}
+
 /** Block Claude after PostToolUse / Stop */
 export interface BlockOutput {
   hookSpecificOutput: {
@@ -66,6 +74,7 @@ export type DeferOutput = null | undefined;
 export type HookOutput =
   | DenyOutput
   | AllowOutput
+  | AskOutput
   | BlockOutput
   | GlobalStopOutput
   | DeferOutput;

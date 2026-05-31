@@ -20,10 +20,14 @@ type Output struct {
 	SystemMessage string `json:"systemMessage,omitempty"`
 	HookSpecific  any    `json:"-"` // serialized into hookSpecificOutput on wire
 	isDeny        bool
+	isAsk         bool
 }
 
 // IsDeny reports whether this output represents a denial decision.
 func (o *Output) IsDeny() bool { return o != nil && o.isDeny }
+
+// IsAsk reports whether this output forwards to Claude Code's built-in permission dialog.
+func (o *Output) IsAsk() bool { return o != nil && o.isAsk }
 
 // JSON encodes the Output into the wire format Claude Code expects.
 func (o *Output) JSON() ([]byte, error) {
@@ -64,6 +68,18 @@ func Allow() *Output {
 		HookSpecific: permissionDecision{
 			PermissionDecision: "allow",
 		},
+	}
+}
+
+// Ask returns an Output that forwards the PreToolUse decision to Claude Code's
+// built-in permission dialog, optionally providing a reason.
+func Ask(reason string) *Output {
+	return &Output{
+		HookSpecific: permissionDecision{
+			PermissionDecision:       "ask",
+			PermissionDecisionReason: reason,
+		},
+		isAsk: true,
 	}
 }
 

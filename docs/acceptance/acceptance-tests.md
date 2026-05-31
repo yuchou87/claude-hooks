@@ -87,6 +87,12 @@
 |----|----------|---------|----------|--------|
 | AT-016 | `--help` lists all new commands | `claude-hooks --help` | output contains uninstall, list, validate, test, doctor, gen-types | ✅ PASS |
 
+## ask Decision Type
+
+| ID | Scenario | Expected |
+|---|---|---|
+| AT-017 | `gen-types` output contains `"ask"` | stdout contains literal `"ask"` string |
+
 ---
 
 > **Adding a new scenario:**

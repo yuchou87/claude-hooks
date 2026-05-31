@@ -389,6 +389,12 @@ if echo "$AT016_HELP" | grep -q "test";       then ok "AT-016d: --help lists tes
 if echo "$AT016_HELP" | grep -q "doctor";     then ok "AT-016e: --help lists doctor"; else fail "AT-016e: --help lists doctor"; fi
 if echo "$AT016_HELP" | grep -q "gen-types";  then ok "AT-016f: --help lists gen-types"; else fail "AT-016f: --help lists gen-types"; fi
 
+echo ""
+echo "=== ask decision type ==="
+
+# AT-017: gen-types output includes "ask" as a valid permissionDecision value
+contains "AT-017" "gen-types output includes ask decision type" '"ask"' "$BIN gen-types"
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 echo ""
